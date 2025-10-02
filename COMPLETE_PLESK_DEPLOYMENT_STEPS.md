@@ -46,6 +46,15 @@ MAX_FILE_SIZE=10485760
 
 # Security (USE THE GENERATED ONE FROM STEP 1)
 JWT_SECRET=paste_generated_jwt_secret_here
+
+# Email Configuration (SMTP Settings)
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USER=your_email@gmail.com
+SMTP_PASS=your_app_password_here
+SMTP_FROM_NAME=Havana Food Cart Booking
+SMTP_FROM_EMAIL=your_email@gmail.com
 ```
 
 ### Step 4: Create ZIP File

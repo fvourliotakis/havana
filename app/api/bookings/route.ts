@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { sendBookingConfirmationEmails, getCustomerLanguage, type BookingEmailData } from '@/lib/email'
 
 // GET /api/bookings - Get bookings (with filters)
 export async function GET(request: NextRequest) {
@@ -311,12 +312,12 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Validate that the cart exists
-    const cartExists = await prisma.foodCart.findUnique({
+    // Validate that the cart exists and get cart data
+    const cartData = await prisma.foodCart.findUnique({
       where: { id: cartId }
     })
 
-    if (!cartExists) {
+    if (!cartData) {
       return NextResponse.json(
         { error: 'Selected cart not found' },
         { status: 404 }
@@ -595,6 +596,85 @@ export async function POST(request: NextRequest) {
 
     // TODO: Send confirmation email
     // TODO: Process payment if not cash
+
+    // Send confirmation emails
+    try {
+      const adminEmail = process.env.ADMIN_EMAIL
+      if (adminEmail) {
+        // Prepare email data
+        const emailData: BookingEmailData = {
+          id: booking.id,
+          customerFirstName: customerFirstName,
+          customerLastName: customerLastName,
+          customerEmail: customerEmail,
+          customerPhone: customerPhone,
+          customerAddress: customerAddress,
+          customerCity: customerCity,
+          customerState: customerState,
+          customerZip: customerZip,
+          customerCountry: customerCountry,
+          eventType: eventType,
+          guestCount: guestCount,
+          specialNotes: specialNotes,
+          totalAmount: totalAmount,
+          paymentMethod: paymentMethod,
+          status: booking.status,
+          paymentStatus: booking.paymentStatus,
+          createdAt: booking.createdAt.toISOString(),
+          cartName: cartData.name,
+          cartLocation: cartData.location,
+          selectedDates: datesToBook.map((date: any) => ({
+            date: date.date,
+            startTime: date.startTime,
+            endTime: date.endTime,
+            totalHours: date.totalHours,
+            cartCost: date.cartCost
+          })),
+          selectedItems: selectedItems?.map((item: any) => ({
+            name: item.name || 'Unknown Item',
+            quantity: item.quantity,
+            price: item.price
+          })),
+          selectedServices: selectedServices?.map((service: any) => ({
+            name: service.name || 'Unknown Service',
+            quantity: service.quantity,
+            pricePerHour: service.pricePerHour,
+            hours: service.hours
+          })),
+          shippingAmount: shippingAmount,
+          couponCode: couponCode,
+          discountAmount: discountAmount
+        }
+
+        // Determine customer language preference
+        const customerLanguage = getCustomerLanguage(customerCountry)
+
+        // Send emails
+        const emailResults = await sendBookingConfirmationEmails(
+          emailData,
+          adminEmail,
+          customerLanguage
+        )
+
+        // Log email results
+        if (emailResults.customerEmail.success) {
+          console.log(`✅ Customer confirmation email sent to ${customerEmail}`)
+        } else {
+          console.error(`❌ Failed to send customer email: ${emailResults.customerEmail.error}`)
+        }
+
+        if (emailResults.adminEmail.success) {
+          console.log(`✅ Admin notification email sent to ${adminEmail}`)
+        } else {
+          console.error(`❌ Failed to send admin email: ${emailResults.adminEmail.error}`)
+        }
+      } else {
+        console.warn('⚠️ ADMIN_EMAIL not configured - skipping email notifications')
+      }
+    } catch (emailError) {
+      console.error('❌ Email sending failed:', emailError)
+      // Don't fail the booking creation if emails fail
+    }
 
     return NextResponse.json({
       success: true,

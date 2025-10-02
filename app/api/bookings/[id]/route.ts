@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { sendBookingStatusUpdateEmail, getCustomerLanguage, type BookingEmailData } from '@/lib/email'
 
 interface RouteParams {
   params: Promise<{
@@ -113,6 +114,64 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     })
 
     // TODO: Send notification email on status change
+
+    // Send status update email to customer
+    try {
+      if (status && updatedBooking.customerEmail) {
+        // Prepare email data
+        const emailData: BookingEmailData = {
+          id: updatedBooking.id,
+          customerFirstName: updatedBooking.customerFirstName,
+          customerLastName: updatedBooking.customerLastName,
+          customerEmail: updatedBooking.customerEmail,
+          customerPhone: updatedBooking.customerPhone,
+          customerAddress: updatedBooking.customerAddress,
+          customerCity: updatedBooking.customerCity,
+          customerState: updatedBooking.customerState,
+          customerZip: updatedBooking.customerZip,
+          customerCountry: updatedBooking.customerCountry,
+          eventType: updatedBooking.eventType || 'Unknown Event',
+          guestCount: updatedBooking.guestCount || 0,
+          specialNotes: updatedBooking.specialNotes || '',
+          totalAmount: updatedBooking.totalAmount || 0,
+          paymentMethod: updatedBooking.paymentMethod || 'unknown',
+          status: updatedBooking.status || 'PENDING',
+          paymentStatus: updatedBooking.paymentStatus || 'PENDING',
+          createdAt: updatedBooking.createdAt.toISOString(),
+          cartName: updatedBooking.cart?.name || 'Unknown Cart',
+          cartLocation: updatedBooking.cart?.location || 'Unknown Location',
+          selectedDates: [], // Will be populated if needed
+          selectedItems: updatedBooking.bookingItems?.map(item => ({
+            name: item.foodItem?.name || 'Unknown Item',
+            quantity: item.quantity,
+            price: item.price
+          })),
+          selectedServices: [],
+          shippingAmount: 0,
+          couponCode: undefined,
+          discountAmount: 0
+        }
+
+        // Determine customer language preference
+        const customerLanguage = getCustomerLanguage(updatedBooking.customerCountry)
+
+        // Send status update email
+        const emailResult = await sendBookingStatusUpdateEmail(
+          emailData,
+          status,
+          customerLanguage
+        )
+
+        if (emailResult.success) {
+          console.log(`✅ Status update email sent to ${updatedBooking.customerEmail}`)
+        } else {
+          console.error(`❌ Failed to send status update email: ${emailResult.error}`)
+        }
+      }
+    } catch (emailError) {
+      console.error('❌ Status update email sending failed:', emailError)
+      // Don't fail the status update if email fails
+    }
 
     return NextResponse.json(updatedBooking)
   } catch (error) {

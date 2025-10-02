@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { sendPaymentConfirmationEmail, getCustomerLanguage, type BookingEmailData } from '@/lib/email'
 
 interface RouteParams {
   params: Promise<{
@@ -52,13 +53,74 @@ export async function PUT(request: NextRequest, context: RouteParams) {
     })
 
     // Update booking status based on verification
-    await prisma.booking.update({
+    const updatedBooking = await prisma.booking.update({
       where: { id: paymentSlip.bookingId },
       data: {
         paymentStatus: isVerified ? 'PAID' : 'FAILED',
         status: isVerified ? 'CONFIRMED' : 'PENDING'
+      },
+      include: {
+        cart: {
+          select: {
+            name: true,
+            location: true
+          }
+        }
       }
     })
+
+    // Send payment confirmation email if verified
+    try {
+      if (isVerified && updatedBooking.customerEmail) {
+        // Prepare email data
+        const emailData: BookingEmailData = {
+          id: updatedBooking.id,
+          customerFirstName: updatedBooking.customerFirstName,
+          customerLastName: updatedBooking.customerLastName,
+          customerEmail: updatedBooking.customerEmail,
+          customerPhone: updatedBooking.customerPhone,
+          customerAddress: updatedBooking.customerAddress,
+          customerCity: updatedBooking.customerCity,
+          customerState: updatedBooking.customerState,
+          customerZip: updatedBooking.customerZip,
+          customerCountry: updatedBooking.customerCountry,
+          eventType: updatedBooking.eventType || 'Unknown Event',
+          guestCount: updatedBooking.guestCount || 0,
+          specialNotes: updatedBooking.specialNotes || '',
+          totalAmount: updatedBooking.totalAmount || 0,
+          paymentMethod: updatedBooking.paymentMethod || 'unknown',
+          status: updatedBooking.status || 'PENDING',
+          paymentStatus: updatedBooking.paymentStatus || 'PENDING',
+          createdAt: updatedBooking.createdAt.toISOString(),
+          cartName: updatedBooking.cart?.name || 'Unknown Cart',
+          cartLocation: updatedBooking.cart?.location || 'Unknown Location',
+          selectedDates: [], // Will be populated if needed
+          selectedItems: [],
+          selectedServices: [],
+          shippingAmount: 0,
+          couponCode: undefined,
+          discountAmount: 0
+        }
+
+        // Determine customer language preference
+        const customerLanguage = getCustomerLanguage(updatedBooking.customerCountry)
+
+        // Send payment confirmation email
+        const emailResult = await sendPaymentConfirmationEmail(
+          emailData,
+          customerLanguage
+        )
+
+        if (emailResult.success) {
+          console.log(`✅ Payment confirmation email sent to ${updatedBooking.customerEmail}`)
+        } else {
+          console.error(`❌ Failed to send payment confirmation email: ${emailResult.error}`)
+        }
+      }
+    } catch (emailError) {
+      console.error('❌ Payment confirmation email sending failed:', emailError)
+      // Don't fail the verification if email fails
+    }
 
     return NextResponse.json({
       success: true,

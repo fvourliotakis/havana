@@ -190,6 +190,9 @@ export default function PaymentSuccessModal({
                 <p className="text-blue-300 text-xs mt-1">
                   {bookingData.customerEmail}
                 </p>
+                <p className="text-blue-300 text-xs mt-1">
+                  Please check your spam folder if you don't receive the email.
+                </p>
               </div>
             </div>
           </div>
