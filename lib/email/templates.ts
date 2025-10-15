@@ -222,7 +222,7 @@ export class EmailTemplateRenderer {
     <div class="container">
         <div class="header">
             <h1>${t('booking_confirmation_title')}</h1>
-            <p>Havana Food Cart Booking System</p>
+            <p>Havana Van Booking System</p>
         </div>
         
         <div class="content">
@@ -520,7 +520,7 @@ ${t('email_footer')}
     <div class="container">
         <div class="header">
             <h1>${t('admin_notification_title')}</h1>
-            <p>Havana Food Cart Admin Notification</p>
+            <p>Havana Van Admin Notification</p>
         </div>
         
         <div class="content">
@@ -721,7 +721,7 @@ ${t('email_footer')}
     <div class="container">
         <div class="header">
             <h1>${t('status_update_title')}</h1>
-            <p>Havana Food Cart Booking System</p>
+            <p>Havana Van Booking System</p>
         </div>
         
         <div class="content">
