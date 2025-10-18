@@ -9,6 +9,7 @@ import { foodItemsTranslations } from './admin/food-items'
 import { servicesTranslations } from './admin/services'
 import { paymentsTranslations } from './admin/payments'
 import { couponsTranslations } from './admin/coupons'
+import { reportsTranslations } from './admin/reports'
 
 type Language = 'el' | 'en' // Greek (Ελληνικά) | English
 type DashboardTranslationKey = keyof typeof dashboardTranslations.el
@@ -19,7 +20,8 @@ type ServicesTranslationKey = keyof typeof servicesTranslations.el
 type PaymentsTranslationKey = keyof typeof paymentsTranslations.el
 type BankSettingsTranslationKey = keyof typeof bankSettingsTranslations.el
 type CouponsTranslationKey = keyof typeof couponsTranslations.el
-type AdminTranslationKey = DashboardTranslationKey | BookingsTranslationKey | BankSettingsTranslationKey | FoodCartsTranslationKey | FoodItemsTranslationKey | ServicesTranslationKey | PaymentsTranslationKey | CouponsTranslationKey
+type ReportsTranslationKey = keyof typeof reportsTranslations.el
+type AdminTranslationKey = DashboardTranslationKey | BookingsTranslationKey | BankSettingsTranslationKey | FoodCartsTranslationKey | FoodItemsTranslationKey | ServicesTranslationKey | PaymentsTranslationKey | CouponsTranslationKey | ReportsTranslationKey
 
 interface AdminI18nContextType {
   language: Language
@@ -83,6 +85,10 @@ export function AdminI18nProvider({ children }: { children: React.ReactNode }) {
     // Try payments translations
     if (key in paymentsTranslations[language]) {
       return paymentsTranslations[language][key as PaymentsTranslationKey] || paymentsTranslations.en[key as PaymentsTranslationKey] || key
+    }
+    // Try reports translations
+    if (key in reportsTranslations[language]) {
+      return reportsTranslations[language][key as ReportsTranslationKey] || reportsTranslations.en[key as ReportsTranslationKey] || key
     }
     // Fallback
     return key

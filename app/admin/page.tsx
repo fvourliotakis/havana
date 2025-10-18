@@ -1,11 +1,13 @@
 'use client'
 
+import { useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
 import Link from 'next/link'
 import { clsx } from 'clsx'
 import { useGetDashboardStatsQuery } from '../../lib/api/bookingsApi'
 import { useAdminI18n } from '../../lib/i18n/admin-context'
+import { AdminBookingModal } from '@/components/admin'
 import { 
   Calendar, 
   DollarSign, 
@@ -21,6 +23,7 @@ import {
 
 export default function AdminDashboard() {
   const { t } = useAdminI18n()
+  const [isBookingModalOpen, setIsBookingModalOpen] = useState(false)
   const {
     data: stats = {
       totalBookings: 0,
@@ -110,21 +113,19 @@ export default function AdminDashboard() {
           )}
         </div>
         <div className="mt-4 lg:mt-0">
-          <Link href="/admin/food-carts">
-            <Button size="sm">
-              {stats.activeCarts === 0 ? (
-                <>
-                  <Truck className="w-4 h-4 mr-2" />
-                  {t('add_first_cart')}
-                </>
-              ) : (
-                <>
-                  <Plus className="w-4 h-4 mr-2" />
-                  {t('new_booking')}
-                </>
-              )}
+          {stats.activeCarts === 0 ? (
+            <Link href="/admin/food-carts">
+              <Button size="sm">
+                <Truck className="w-4 h-4 mr-2" />
+                {t('add_first_cart')}
+              </Button>
+            </Link>
+          ) : (
+            <Button size="sm" onClick={() => setIsBookingModalOpen(true)}>
+              <Plus className="w-4 h-4 mr-2" />
+              {t('new_booking')}
             </Button>
-          </Link>
+          )}
         </div>
       </div>
 
@@ -351,10 +352,12 @@ export default function AdminDashboard() {
                 <span className="text-sm">{t('edit_menu')}</span>
               </Button>
             </Link>
-            <Button variant="outline" className="flex flex-col items-center p-6 h-auto" disabled={isEmpty}>
-              <BarChart3 className="w-8 h-8 mb-2" />
-              <span className="text-sm">{t('view_reports')}</span>
-            </Button>
+            <Link href="/admin/reports">
+              <Button variant="outline" className="flex flex-col items-center p-6 h-auto w-full">
+                <BarChart3 className="w-8 h-8 mb-2" />
+                <span className="text-sm">{t('view_reports')}</span>
+              </Button>
+            </Link>
           </div>
         </CardContent>
       </Card>
@@ -381,6 +384,16 @@ export default function AdminDashboard() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Admin Booking Modal */}
+      <AdminBookingModal
+        isOpen={isBookingModalOpen}
+        onClose={() => setIsBookingModalOpen(false)}
+        onSuccess={() => {
+          setIsBookingModalOpen(false)
+          refetch() // Refresh dashboard stats
+        }}
+      />
     </div>
   )
 }

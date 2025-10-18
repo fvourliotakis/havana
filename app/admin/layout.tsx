@@ -22,7 +22,8 @@ import {
   Home,
   CreditCard,
   Building2,
-  Tag
+  Tag,
+  TrendingUp
 } from 'lucide-react'
 
 interface AdminLayoutProps {
@@ -115,12 +116,14 @@ function AdminLayoutInner({ children }: AdminLayoutProps) {
     Users,
     CreditCard,
     Building2,
-    Tag
+    Tag,
+    TrendingUp
   } as const
 
   const navigation = [
     { name: t('dashboard'), href: '/admin', icon: 'BarChart3', description: t('dashboard_description') },
     { name: t('bookings'), href: '/admin/bookings', icon: 'Calendar', description: t('bookings_description') },
+    { name: 'Reports & Analytics', href: '/admin/reports', icon: 'TrendingUp', description: 'Business insights and performance' },
     { name: t('food_carts'), href: '/admin/food-carts', icon: 'Truck', description: t('food_carts_description') },
     { name: t('food_items'), href: '/admin/food-items', icon: 'ChefHat', description: t('food_items_description') },
     { name: t('services'), href: '/admin/services', icon: 'Users', description: t('services_description') },
