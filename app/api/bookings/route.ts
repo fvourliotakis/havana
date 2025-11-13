@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { sendBookingConfirmationEmails, getCustomerLanguage, type BookingEmailData } from '@/lib/email'
+import { sendBookingConfirmationEmails, getCustomerLanguage, type BookingEmailData, emailService } from '@/lib/email'
+import { generateBookingToken } from '@/lib/bookingTokens'
 
 // GET /api/bookings - Get bookings (with filters)
 export async function GET(request: NextRequest) {
@@ -248,7 +249,10 @@ export async function POST(request: NextRequest) {
       // Coupon information
       couponCode,
       discountAmount = 0,
-      originalAmount
+      originalAmount,
+      // Admin-created booking flag
+      isAdminCreated = false,
+      selectedBankId
     } = body
     
     const cartId = selectedCartId // Map to expected field name
@@ -286,10 +290,19 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Validate payment slip URL for bank transfers
-    if (paymentMethod === 'bank_transfer' && !paymentSlipUrl) {
+    // Validate payment slip URL for bank transfers (except admin-created bookings)
+    // Admin-created bookings will have payment slip uploaded later by customer
+    if (paymentMethod === 'bank_transfer' && !paymentSlipUrl && !isAdminCreated) {
       return NextResponse.json(
         { error: 'Payment slip URL is required for bank transfers' },
+        { status: 400 }
+      )
+    }
+
+    // Validate selectedBankId for admin-created bank transfer bookings
+    if (paymentMethod === 'bank_transfer' && isAdminCreated && !selectedBankId) {
+      return NextResponse.json(
+        { error: 'Please select a bank for bank transfer' },
         { status: 400 }
       )
     }
@@ -438,6 +451,7 @@ export async function POST(request: NextRequest) {
           couponCode,
           discountAmount: discountAmount || 0, // Ensure it's never null
           originalAmount,
+          selectedBankId, // Store selected bank ID for admin-created bookings
           // For backward compatibility, set legacy fields from the first selected date
           bookingDate: datesToBook[0] ? new Date(datesToBook[0].date) : null,
           startTime: datesToBook[0] ? datesToBook[0].startTime : null,
@@ -594,13 +608,108 @@ export async function POST(request: NextRequest) {
       timeout: 30000  // 30 seconds timeout
     })
 
-    // TODO: Send confirmation email
-    // TODO: Process payment if not cash
-
     // Send confirmation emails
     try {
       const adminEmail = process.env.ADMIN_EMAIL
-      if (adminEmail) {
+      
+      // If booking was created by admin, send special email with action buttons
+      if (isAdminCreated && adminEmail) {
+        // Generate secure token for email actions
+        const token = generateBookingToken(booking.id, customerEmail)
+        const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000'
+        
+        // Generate action URLs
+        const confirmUrl = `${baseUrl}/booking-confirm/${booking.id}?token=${token}&action=confirm`
+        const cancelUrl = `${baseUrl}/booking-confirm/${booking.id}?token=${token}&action=cancel`
+        const payUrl = `${baseUrl}/booking-confirm/${booking.id}?token=${token}&action=pay`
+        
+        // Fetch bank details if bank_transfer selected
+        let bankDetails = null
+        if (paymentMethod === 'bank_transfer' && selectedBankId) {
+          try {
+            bankDetails = await (prisma as any).bankConfig.findUnique({
+              where: { id: selectedBankId },
+              select: {
+                id: true,
+                bankName: true,
+                accountHolder: true,
+                iban: true,
+                swiftCode: true,
+                instructions: true
+              }
+            })
+          } catch (error) {
+            console.error('Error fetching bank details:', error)
+          }
+        }
+
+        // Prepare email data
+        const emailData: BookingEmailData = {
+          id: booking.id,
+          customerFirstName,
+          customerLastName,
+          customerEmail,
+          customerPhone,
+          customerAddress,
+          customerCity,
+          customerState,
+          customerZip,
+          customerCountry,
+          eventType,
+          guestCount,
+          specialNotes,
+          totalAmount,
+          paymentMethod,
+          status: booking.status,
+          paymentStatus: booking.paymentStatus,
+          createdAt: booking.createdAt.toISOString(),
+          cartName: cartData.name,
+          cartLocation: cartData.location,
+          selectedDates: datesToBook.map((date: any) => ({
+            date: date.date,
+            startTime: date.startTime,
+            endTime: date.endTime,
+            totalHours: date.totalHours,
+            cartCost: date.cartCost
+          })),
+          shippingAmount,
+          couponCode,
+          discountAmount,
+          selectedBankId
+        }
+
+        // Determine customer language
+        const customerLanguage = getCustomerLanguage(customerCountry)
+
+        // Send admin-created booking email with action buttons
+        try {
+          await emailService.sendAdminCreatedBookingEmail(
+            customerEmail,
+            emailData,
+            confirmUrl,
+            cancelUrl,
+            payUrl,
+            bankDetails,
+            customerLanguage
+          )
+          console.log(`✅ Admin-created booking email sent to ${customerEmail}`)
+        } catch (emailError) {
+          console.error(`❌ Failed to send admin-created booking email: ${emailError}`)
+        }
+
+        // Also notify admin
+        try {
+          await emailService.sendAdminNotification(
+            adminEmail,
+            emailData,
+            'el'
+          )
+          console.log(`✅ Admin notification email sent to ${adminEmail}`)
+        } catch (emailError) {
+          console.error(`❌ Failed to send admin notification: ${emailError}`)
+        }
+      } else if (adminEmail) {
+        // Regular booking (user-created): send normal confirmation emails
         // Prepare email data
         const emailData: BookingEmailData = {
           id: booking.id,
@@ -668,8 +777,6 @@ export async function POST(request: NextRequest) {
         } else {
           console.error(`❌ Failed to send admin email: ${emailResults.adminEmail.error}`)
         }
-      } else {
-        console.warn('⚠️ ADMIN_EMAIL not configured - skipping email notifications')
       }
     } catch (emailError) {
       console.error('❌ Email sending failed:', emailError)
@@ -691,8 +798,12 @@ export async function POST(request: NextRequest) {
       )
     }
     
+    // Better error logging for debugging
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    console.error('Booking creation error details:', errorMessage)
+    
     return NextResponse.json(
-      { error: 'Failed to create booking' },
+      { error: 'Failed to create booking', details: errorMessage },
       { status: 500 }
     )
   }

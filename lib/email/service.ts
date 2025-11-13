@@ -127,6 +127,33 @@ export class EmailService {
     })
   }
 
+  async sendAdminCreatedBookingEmail(
+    customerEmail: string,
+    bookingData: BookingEmailData,
+    confirmUrl: string,
+    cancelUrl: string,
+    payUrl?: string,
+    bankDetails?: any,
+    language: 'el' | 'en' = 'el'
+  ): Promise<EmailResult> {
+    const subject = language === 'el'
+      ? 'Νέα Κράτηση - Havana Food Cart'
+      : 'New Booking - Havana Food Cart'
+
+    const templateRenderer = new EmailTemplateRenderer(language)
+    const html = templateRenderer.renderAdminBookingNotificationTemplate(
+      { bookingData, language },
+      { confirmUrl, cancelUrl, payUrl },
+      bankDetails
+    )
+
+    return this.sendEmail({
+      to: customerEmail,
+      subject,
+      html
+    })
+  }
+
 }
 
 // Singleton instance

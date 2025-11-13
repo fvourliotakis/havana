@@ -43,6 +43,7 @@ export interface BookingEmailData {
   shippingAmount?: number
   couponCode?: string
   discountAmount?: number
+  selectedBankId?: string
 }
 
 export const sendBookingConfirmationEmails = async (

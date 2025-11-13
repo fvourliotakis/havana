@@ -134,6 +134,7 @@ model Booking {
   couponCode        String?
   discountAmount    Float            @default(0)
   originalAmount    Float?
+  selectedBankId    String?
   bookingDates      BookingDate[]
   bookingItems      BookingItem[]
   bookingServices   BookingService[]

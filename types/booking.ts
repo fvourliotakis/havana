@@ -160,6 +160,7 @@ export interface BookingFormData {
   foodAmount: number
   paymentMethod: string
   paymentSlipUrl?: string // Payment slip URL for bank transfers
+  selectedBankId?: string // Selected bank for bank transfer (admin-created bookings)
   
   // Coupon information
   couponCode?: string

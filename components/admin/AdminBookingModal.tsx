@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
-import { X } from 'lucide-react'
+import { X, CreditCard, Building2, BookmarkCheck } from 'lucide-react'
 import Button from '../ui/Button'
 import { BookingFormData, BookingStep } from '@/types/booking'
 import { I18nProvider } from '@/lib/i18n/context'
@@ -10,6 +10,7 @@ import CartSelectionStep from '../booking/steps/CartSelectionStep'
 import DynamicTimingStep from '../booking/steps/DynamicTimingStep'
 import CustomerInfoStep from '../booking/steps/CustomerInfoStep'
 import { useCreateBookingMutation } from '@/lib/api/bookingsApi'
+import { clsx } from 'clsx'
 
 interface AdminBookingModalProps {
   isOpen: boolean
@@ -17,7 +18,7 @@ interface AdminBookingModalProps {
   onSuccess: () => void
 }
 
-type AdminBookingStep = 'cart' | 'timing' | 'customer' | 'confirm'
+type AdminBookingStep = 'cart' | 'timing' | 'customer' | 'payment' | 'confirm'
 
 function AdminBookingModalContent({ isOpen, onClose, onSuccess }: AdminBookingModalProps) {
   const [currentStep, setCurrentStep] = useState<AdminBookingStep>('cart')
@@ -36,7 +37,9 @@ function AdminBookingModalContent({ isOpen, onClose, onSuccess }: AdminBookingMo
     customerCity: '',
     customerState: '',
     customerZip: '',
-    customerCountry: 'Greece'
+    customerCountry: 'Greece',
+    paymentMethod: 'reservation',
+    selectedBankId: undefined
   })
 
   const [createBooking, { isLoading }] = useCreateBookingMutation()
@@ -48,13 +51,15 @@ function AdminBookingModalContent({ isOpen, onClose, onSuccess }: AdminBookingMo
   const goToNextStep = () => {
     if (currentStep === 'cart') setCurrentStep('timing')
     else if (currentStep === 'timing') setCurrentStep('customer')
-    else if (currentStep === 'customer') setCurrentStep('confirm')
+    else if (currentStep === 'customer') setCurrentStep('payment')
+    else if (currentStep === 'payment') setCurrentStep('confirm')
   }
 
   const goToPreviousStep = () => {
     if (currentStep === 'timing') setCurrentStep('cart')
     else if (currentStep === 'customer') setCurrentStep('timing')
-    else if (currentStep === 'confirm') setCurrentStep('customer')
+    else if (currentStep === 'payment') setCurrentStep('customer')
+    else if (currentStep === 'confirm') setCurrentStep('payment')
   }
 
   const handleConfirmBooking = async () => {
@@ -72,14 +77,16 @@ function AdminBookingModalContent({ isOpen, onClose, onSuccess }: AdminBookingMo
         foodAmount,
         servicesAmount,
         totalAmount,
-        paymentMethod: 'reservation', // Admin bookings default to reservation
+        paymentMethod: formData.paymentMethod || 'reservation',
+        selectedBankId: formData.selectedBankId,
         paymentStatus: 'PENDING',
+        isAdminCreated: true, // Flag to trigger special email
         // Legacy fields for backward compatibility
         bookingDate: formData.selectedDates?.[0]?.date || '',
         startTime: formData.selectedDates?.[0]?.startTime || '',
         endTime: formData.selectedDates?.[0]?.endTime || '',
         totalHours: formData.selectedDates?.[0]?.totalHours || 0
-      } as BookingFormData
+      } as BookingFormData & { isAdminCreated: boolean }
 
       await createBooking(bookingPayload).unwrap()
       onSuccess()
@@ -103,8 +110,12 @@ function AdminBookingModalContent({ isOpen, onClose, onSuccess }: AdminBookingMo
         customerCountry: 'Greece'
       })
       setCurrentStep('cart')
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to create booking:', error)
+      
+      // Show detailed error to user
+      const errorMessage = error?.data?.details || error?.data?.error || error?.message || 'Unknown error'
+      alert(`Failed to create booking: ${errorMessage}`)
     }
   }
 
@@ -135,7 +146,8 @@ function AdminBookingModalContent({ isOpen, onClose, onSuccess }: AdminBookingMo
               {currentStep === 'cart' && 'Step 1: Select Cart'}
               {currentStep === 'timing' && 'Step 2: Choose Dates & Times'}
               {currentStep === 'customer' && 'Step 3: Customer Information'}
-              {currentStep === 'confirm' && 'Step 4: Confirm Booking'}
+              {currentStep === 'payment' && 'Step 4: Payment Method'}
+              {currentStep === 'confirm' && 'Step 5: Confirm Booking'}
             </p>
           </div>
           <button
@@ -168,6 +180,15 @@ function AdminBookingModalContent({ isOpen, onClose, onSuccess }: AdminBookingMo
 
             {currentStep === 'customer' && (
               <CustomerInfoStep
+                formData={formData}
+                updateFormData={updateFormData}
+                onNext={goToNextStep}
+                onPrevious={goToPreviousStep}
+              />
+            )}
+
+            {currentStep === 'payment' && (
+              <AdminPaymentSelection
                 formData={formData}
                 updateFormData={updateFormData}
                 onNext={goToNextStep}
@@ -246,6 +267,200 @@ function AdminBookingModalContent({ isOpen, onClose, onSuccess }: AdminBookingMo
   )
 
   return createPortal(modalContent, document.body)
+}
+
+// Admin Payment Selection Component
+interface AdminPaymentSelectionProps {
+  formData: Partial<BookingFormData>
+  updateFormData: (data: Partial<BookingFormData>) => void
+  onNext: () => void
+  onPrevious: () => void
+}
+
+function AdminPaymentSelection({ formData, updateFormData, onNext, onPrevious }: AdminPaymentSelectionProps) {
+  const [bankConfigs, setBankConfigs] = useState<any[]>([])
+  const [loading, setLoading] = useState(false)
+  const selectedPaymentMethod = formData.paymentMethod || 'reservation'
+  const selectedBankId = formData.selectedBankId
+
+  useEffect(() => {
+    // Fetch bank configs when component mounts or when bank_transfer is selected
+    if (selectedPaymentMethod === 'bank_transfer') {
+      fetchBankConfigs()
+    }
+  }, [selectedPaymentMethod])
+
+  const fetchBankConfigs = async () => {
+    setLoading(true)
+    try {
+      const response = await fetch('/api/admin/bank-config')
+      const data = await response.json()
+      if (data.success) {
+        const activeBanks = data.bankConfigs?.filter((bank: any) => bank.isActive) || []
+        setBankConfigs(activeBanks)
+        // Auto-select first bank if only one available
+        if (activeBanks.length === 1 && !selectedBankId) {
+          updateFormData({ selectedBankId: activeBanks[0].id })
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching bank configs:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handlePaymentMethodChange = (method: string) => {
+    updateFormData({ paymentMethod: method, selectedBankId: undefined })
+  }
+
+  const handleNext = () => {
+    // Validate: if bank_transfer selected, must have bank selected
+    if (selectedPaymentMethod === 'bank_transfer' && !selectedBankId) {
+      alert('Please select a bank for bank transfer')
+      return
+    }
+    onNext()
+  }
+
+  return (
+    <div className="space-y-[3vh] lg:space-y-[1.5vw]">
+      <div className="text-center">
+        <h3 className="text-[3vh] lg:text-[1.5vw] font-bold text-white mb-[1vh] lg:mb-[0.5vw]">
+          Select Payment Method
+        </h3>
+        <p className="text-gray-400 text-[1.6vh] lg:text-[0.8vw]">
+          Choose how the customer will pay for this booking
+        </p>
+      </div>
+
+      {/* Payment Method Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-[2vh] lg:gap-[1vw] mb-[3vh] lg:mb-[1.5vw]">
+        {/* Reservation Option */}
+        <button
+          onClick={() => handlePaymentMethodChange('reservation')}
+          className={clsx(
+            'p-[2vh] lg:p-[1vw] rounded-lg border-2 transition-all duration-300 text-center',
+            selectedPaymentMethod === 'reservation'
+              ? 'border-orange-500 bg-orange-500/20 text-white'
+              : 'border-slate-600 bg-slate-700 text-gray-300 hover:border-slate-500'
+          )}
+        >
+          <BookmarkCheck className="w-[3vh] h-[3vh] lg:w-[1.5vw] lg:h-[1.5vw] mx-auto mb-[1vh] lg:mb-[0.5vw] text-orange-400" />
+          <h4 className="text-[1.6vh] lg:text-[0.8vw] font-semibold mb-[0.5vh] lg:mb-[0.25vw]">Reservation</h4>
+          <p className="text-[1.2vh] lg:text-[0.6vw] text-gray-400">Customer confirms, pays later</p>
+        </button>
+
+        {/* Bank Transfer Option */}
+        <button
+          onClick={() => handlePaymentMethodChange('bank_transfer')}
+          className={clsx(
+            'p-[2vh] lg:p-[1vw] rounded-lg border-2 transition-all duration-300 text-center',
+            selectedPaymentMethod === 'bank_transfer'
+              ? 'border-green-500 bg-green-500/20 text-white'
+              : 'border-slate-600 bg-slate-700 text-gray-300 hover:border-slate-500'
+          )}
+        >
+          <Building2 className="w-[3vh] h-[3vh] lg:w-[1.5vw] lg:h-[1.5vw] mx-auto mb-[1vh] lg:mb-[0.5vw] text-green-400" />
+          <h4 className="text-[1.6vh] lg:text-[0.8vw] font-semibold mb-[0.5vh] lg:mb-[0.25vw]">Bank Transfer</h4>
+          <p className="text-[1.2vh] lg:text-[0.6vw] text-gray-400">Customer uploads payment proof</p>
+        </button>
+
+        {/* PayPal Option */}
+        <button
+          onClick={() => handlePaymentMethodChange('paypal')}
+          className={clsx(
+            'p-[2vh] lg:p-[1vw] rounded-lg border-2 transition-all duration-300 text-center',
+            selectedPaymentMethod === 'paypal'
+              ? 'border-blue-500 bg-blue-500/20 text-white'
+              : 'border-slate-600 bg-slate-700 text-gray-300 hover:border-slate-500'
+          )}
+        >
+          <CreditCard className="w-[3vh] h-[3vh] lg:w-[1.5vw] lg:h-[1.5vw] mx-auto mb-[1vh] lg:mb-[0.5vw] text-blue-400" />
+          <h4 className="text-[1.6vh] lg:text-[0.8vw] font-semibold mb-[0.5vh] lg:mb-[0.25vw]">PayPal</h4>
+          <p className="text-[1.2vh] lg:text-[0.6vw] text-gray-400">Customer pays via PayPal</p>
+        </button>
+      </div>
+
+      {/* Bank Selection (only show if bank_transfer selected) */}
+      {selectedPaymentMethod === 'bank_transfer' && (
+        <div className="bg-slate-800 rounded-lg p-[2vh] lg:p-[1vw] border border-slate-700">
+          <h4 className="text-[1.8vh] lg:text-[0.9vw] font-semibold text-white mb-[1.5vh] lg:mb-[0.75vw]">
+            Select Bank Account
+          </h4>
+          {loading ? (
+            <div className="text-gray-400 text-center py-[2vh] lg:py-[1vw]">Loading banks...</div>
+          ) : bankConfigs.length > 0 ? (
+            <div className="space-y-[1vh] lg:space-y-[0.5vw]">
+              {bankConfigs.map((bank) => (
+                <label
+                  key={bank.id}
+                  className={clsx(
+                    'flex items-center p-[1.5vh] lg:p-[0.75vw] rounded-lg border-2 cursor-pointer transition-all duration-300',
+                    selectedBankId === bank.id
+                      ? 'border-green-500 bg-green-500/10'
+                      : 'border-slate-600 bg-slate-700/50 hover:border-slate-500'
+                  )}
+                >
+                  <input
+                    type="radio"
+                    name="selectedBank"
+                    value={bank.id}
+                    checked={selectedBankId === bank.id}
+                    onChange={() => updateFormData({ selectedBankId: bank.id })}
+                    className="mr-[1vh] lg:mr-[0.5vw] w-[2vh] h-[2vh] lg:w-[1vw] lg:h-[1vw]"
+                  />
+                  <div className="flex-1">
+                    <div className="text-[1.4vh] lg:text-[0.7vw] font-medium text-white">
+                      {bank.bankName}
+                    </div>
+                    <div className="text-[1.2vh] lg:text-[0.6vw] text-gray-400">
+                      {bank.accountHolder} • {bank.iban.slice(-4)}
+                    </div>
+                  </div>
+                </label>
+              ))}
+            </div>
+          ) : (
+            <div className="text-red-400 text-center py-[2vh] lg:py-[1vw] text-[1.4vh] lg:text-[0.7vw]">
+              No active bank accounts configured. Please add one in bank settings.
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Information Box */}
+      <div className="bg-blue-600/10 border border-blue-600/30 rounded-lg p-[2vh] lg:p-[1vw]">
+        <h4 className="text-[1.6vh] lg:text-[0.8vw] font-semibold text-blue-400 mb-[1vh] lg:mb-[0.5vw]">
+          📧 Customer will receive an email
+        </h4>
+        <p className="text-[1.3vh] lg:text-[0.65vw] text-gray-300">
+          {selectedPaymentMethod === 'reservation' && 'The customer will receive an email with a confirmation button to accept or decline the booking.'}
+          {selectedPaymentMethod === 'bank_transfer' && 'The customer will receive bank details via email and can upload payment proof.'}
+          {selectedPaymentMethod === 'paypal' && 'The customer will receive an email with a PayPal payment button to complete the booking.'}
+        </p>
+      </div>
+
+      {/* Navigation Buttons */}
+      <div className="flex justify-between pt-[2vh] lg:pt-[1vw]">
+        <Button
+          variant="outline"
+          onClick={onPrevious}
+          size="md"
+          className="px-[3vh] lg:px-[1.5vw]"
+        >
+          Previous
+        </Button>
+        <Button
+          onClick={handleNext}
+          size="md"
+          className="px-[3vh] lg:px-[1.5vw] bg-teal-600 hover:bg-teal-700"
+        >
+          Next
+        </Button>
+      </div>
+    </div>
+  )
 }
 
 export function AdminBookingModal(props: AdminBookingModalProps) {

@@ -2,7 +2,7 @@ export const emailTranslations = {
   // Greek (Ελληνικά) - Default Language
   el: {
     // Booking Confirmation Email
-    booking_confirmation_subject: 'Επιβεβαίωση Κράτησης - Havana Food Cart',
+    booking_confirmation_subject: 'Επιβεβαίωση Κράτησης - Havana Van Booking',
     booking_confirmation_title: 'Επιβεβαίωση Κράτησης',
     booking_confirmation_greeting: 'Αγαπητέ/ή {firstName} {lastName},',
     booking_confirmation_message: 'Η κράτησή σας έχει επιβεβαιωθεί με επιτυχία!',
@@ -25,11 +25,11 @@ export const emailTranslations = {
     booking_confirmation_paypal_note: 'Η πληρωμή σας έχει επεξεργαστεί με επιτυχία μέσω PayPal.',
     booking_confirmation_bank_note: 'Παρακαλώ στείλτε το αποδεικτικό της τραπεζικής μεταφοράς για να επιβεβαιώσουμε την πληρωμή σας.',
     booking_confirmation_reservation_note: 'Η κράτησή σας είναι επιβεβαιωμένη. Θα επικοινωνήσουμε μαζί σας σύντομα για την πληρωμή.',
-    booking_confirmation_footer: 'Ευχαριστούμε που επιλέξατε το Havana Food Cart!',
+    booking_confirmation_footer: 'Ευχαριστούμε που επιλέξατε το Havana Van Booking!',
     booking_confirmation_contact_support: 'Αν έχετε ερωτήσεις, μη διστάσετε να επικοινωνήσετε μαζί μας.',
     
     // Admin Notification Email
-    admin_notification_subject: 'Νέα Κράτηση - Havana Food Cart',
+    admin_notification_subject: 'Νέα Κράτηση - Havana Van Booking',
     admin_notification_title: 'Νέα Κράτηση',
     admin_notification_message: 'Έχει δημιουργηθεί μια νέα κράτηση που απαιτεί την προσοχή σας.',
     admin_notification_customer_info: 'Στοιχεία Πελάτη',
@@ -38,7 +38,7 @@ export const emailTranslations = {
     admin_notification_admin_panel: 'Πάνελ Διαχείρισης',
     
     // Booking Status Update Email
-    status_update_subject: 'Ενημέρωση Κράτησης - Havana Food Cart',
+    status_update_subject: 'Ενημέρωση Κράτησης - Havana Van Booking',
     status_update_title: 'Ενημέρωση Κράτησης',
     status_update_greeting: 'Αγαπητέ/ή {firstName} {lastName},',
     status_update_message: 'Η κατάσταση της κράτησής σας έχει ενημερωθεί.',
@@ -52,7 +52,7 @@ export const emailTranslations = {
     status_failed: 'Αποτυχημένη',
     
     // Payment Confirmation Email
-    payment_confirmation_subject: 'Επιβεβαίωση Πληρωμής - Havana Food Cart',
+    payment_confirmation_subject: 'Επιβεβαίωση Πληρωμής - Havana Van Booking',
     payment_confirmation_title: 'Επιβεβαίωση Πληρωμής',
     payment_confirmation_message: 'Η πληρωμή σας έχει επιβεβαιωθεί με επιτυχία!',
     payment_confirmation_amount: 'Ποσό Πληρωμής',
@@ -63,7 +63,7 @@ export const emailTranslations = {
     currency_symbol: '€',
     date_format: 'DD/MM/YYYY',
     time_format: 'HH:mm',
-    email_footer: 'Αυτό το email στάλθηκε αυτόματα από το σύστημα κρατήσεων Havana Food Cart.',
+    email_footer: 'Αυτό το email στάλθηκε αυτόματα από το σύστημα κρατήσεων Havana Van Booking.',
     unsubscribe_text: 'Αν δεν θέλετε να λαμβάνετε αυτά τα emails, παρακαλώ επικοινωνήστε μαζί μας.',
     
     // Booking Details
@@ -87,12 +87,36 @@ export const emailTranslations = {
     status_pending_payment: 'Εκκρεμής Πληρωμή',
     status_payment_verified: 'Πληρωμή Επιβεβαιωμένη',
     status_ready_for_event: 'Έτοιμο για Εκδήλωση',
+    
+    // Admin-Created Booking Emails
+    action_required: 'Απαιτείται Ενέργεια',
+    admin_created_booking_message: 'Μια κράτηση δημιουργήθηκε για εσάς. Παρακαλώ εξετάστε τις λεπτομέρειες και προβείτε σε ενέργεια.',
+    confirm_booking_button: 'Επιβεβαίωση Κράτησης',
+    cancel_booking_button: 'Ακύρωση Κράτησης',
+    upload_payment_proof_button: 'Αποστολή Αποδεικτικού Πληρωμής',
+    pay_with_paypal_button: 'Πληρωμή με PayPal',
+    
+    // Bank Transfer Specific
+    bank_transfer_instructions_title: 'Στοιχεία Τραπεζικής Μεταφοράς',
+    bank_transfer_instructions_message: 'Παρακαλώ μεταφέρετε το ποσό στον παρακάτω λογαριασμό και στείλτε το αποδεικτικό πληρωμής.',
+    payment_deadline: 'Προθεσμία Πληρωμής',
+    bank_name: 'Όνομα Τράπεζας',
+    account_holder: 'Δικαιούχος Λογαριασμού',
+    iban: 'IBAN',
+    swift_code: 'Κωδικός SWIFT',
+    instructions: 'Οδηγίες',
+    
+    // Confirmation Messages
+    booking_confirmed_by_customer: 'Ο πελάτης επιβεβαίωσε την κράτηση',
+    booking_cancelled_by_customer: 'Ο πελάτης ακύρωσε την κράτηση',
+    payment_proof_submitted: 'Αποδεικτικό πληρωμής υποβλήθηκε',
+    action_completed_successfully: 'Η ενέργεια ολοκληρώθηκε με επιτυχία',
   },
 
   // English
   en: {
     // Booking Confirmation Email
-    booking_confirmation_subject: 'Booking Confirmation - Havana Food Cart',
+    booking_confirmation_subject: 'Booking Confirmation - Havana Van Booking',
     booking_confirmation_title: 'Booking Confirmation',
     booking_confirmation_greeting: 'Dear {firstName} {lastName},',
     booking_confirmation_message: 'Your booking has been successfully confirmed!',
@@ -115,11 +139,11 @@ export const emailTranslations = {
     booking_confirmation_paypal_note: 'Your payment has been successfully processed through PayPal.',
     booking_confirmation_bank_note: 'Please send the bank transfer receipt to confirm your payment.',
     booking_confirmation_reservation_note: 'Your booking is confirmed. We will contact you shortly regarding payment.',
-    booking_confirmation_footer: 'Thank you for choosing Havana Food Cart!',
+    booking_confirmation_footer: 'Thank you for choosing Havana Van Booking!',
     booking_confirmation_contact_support: 'If you have any questions, please don\'t hesitate to contact us.',
     
     // Admin Notification Email
-    admin_notification_subject: 'New Booking - Havana Food Cart',
+    admin_notification_subject: 'New Booking - Havana Van Booking',
     admin_notification_title: 'New Booking',
     admin_notification_message: 'A new booking has been created that requires your attention.',
     admin_notification_customer_info: 'Customer Information',
@@ -128,7 +152,7 @@ export const emailTranslations = {
     admin_notification_admin_panel: 'Admin Panel',
     
     // Booking Status Update Email
-    status_update_subject: 'Booking Update - Havana Food Cart',
+    status_update_subject: 'Booking Update - Havana Van Booking',
     status_update_title: 'Booking Update',
     status_update_greeting: 'Dear {firstName} {lastName},',
     status_update_message: 'Your booking status has been updated.',
@@ -142,7 +166,7 @@ export const emailTranslations = {
     status_failed: 'Failed',
     
     // Payment Confirmation Email
-    payment_confirmation_subject: 'Payment Confirmation - Havana Food Cart',
+    payment_confirmation_subject: 'Payment Confirmation - Havana Van Booking',
     payment_confirmation_title: 'Payment Confirmation',
     payment_confirmation_message: 'Your payment has been successfully confirmed!',
     payment_confirmation_amount: 'Payment Amount',
@@ -153,7 +177,7 @@ export const emailTranslations = {
     currency_symbol: '€',
     date_format: 'MM/DD/YYYY',
     time_format: 'HH:mm',
-    email_footer: 'This email was sent automatically from the Havana Food Cart booking system.',
+    email_footer: 'This email was sent automatically from the Havana Van Booking booking system.',
     unsubscribe_text: 'If you do not wish to receive these emails, please contact us.',
     
     // Booking Details
@@ -177,6 +201,30 @@ export const emailTranslations = {
     status_pending_payment: 'Pending Payment',
     status_payment_verified: 'Payment Verified',
     status_ready_for_event: 'Ready for Event',
+    
+    // Admin-Created Booking Emails
+    action_required: 'Action Required',
+    admin_created_booking_message: 'A booking has been created for you. Please review the details and take action.',
+    confirm_booking_button: 'Confirm Booking',
+    cancel_booking_button: 'Cancel Booking',
+    upload_payment_proof_button: 'Upload Payment Proof',
+    pay_with_paypal_button: 'Pay with PayPal',
+    
+    // Bank Transfer Specific
+    bank_transfer_instructions_title: 'Bank Transfer Details',
+    bank_transfer_instructions_message: 'Please transfer the amount to the following account and submit your payment proof.',
+    payment_deadline: 'Payment Deadline',
+    bank_name: 'Bank Name',
+    account_holder: 'Account Holder',
+    iban: 'IBAN',
+    swift_code: 'SWIFT Code',
+    instructions: 'Instructions',
+    
+    // Confirmation Messages
+    booking_confirmed_by_customer: 'Customer confirmed the booking',
+    booking_cancelled_by_customer: 'Customer cancelled the booking',
+    payment_proof_submitted: 'Payment proof submitted',
+    action_completed_successfully: 'Action completed successfully',
   }
 }
 
