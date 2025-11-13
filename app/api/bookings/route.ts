@@ -655,11 +655,11 @@ export async function POST(request: NextRequest) {
           customerState,
           customerZip,
           customerCountry,
-          eventType,
+          eventType: eventType || '',
           guestCount,
-          specialNotes,
+          specialNotes: specialNotes || undefined,
           totalAmount,
-          paymentMethod,
+          paymentMethod: paymentMethod || 'reservation',
           status: booking.status,
           paymentStatus: booking.paymentStatus,
           createdAt: booking.createdAt.toISOString(),
@@ -672,9 +672,9 @@ export async function POST(request: NextRequest) {
             totalHours: date.totalHours,
             cartCost: date.cartCost
           })),
-          shippingAmount,
-          couponCode,
-          discountAmount,
+          shippingAmount: shippingAmount || 0,
+          couponCode: couponCode || undefined,
+          discountAmount: discountAmount || 0,
           selectedBankId
         }
 
@@ -722,11 +722,11 @@ export async function POST(request: NextRequest) {
           customerState: customerState,
           customerZip: customerZip,
           customerCountry: customerCountry,
-          eventType: eventType,
+          eventType: eventType || '',
           guestCount: guestCount,
-          specialNotes: specialNotes,
+          specialNotes: specialNotes || undefined,
           totalAmount: totalAmount,
-          paymentMethod: paymentMethod,
+          paymentMethod: paymentMethod || 'reservation',
           status: booking.status,
           paymentStatus: booking.paymentStatus,
           createdAt: booking.createdAt.toISOString(),
@@ -750,9 +750,9 @@ export async function POST(request: NextRequest) {
             pricePerHour: service.pricePerHour,
             hours: service.hours
           })),
-          shippingAmount: shippingAmount,
-          couponCode: couponCode,
-          discountAmount: discountAmount
+          shippingAmount: shippingAmount || 0,
+          couponCode: couponCode || undefined,
+          discountAmount: discountAmount || 0
         }
 
         // Determine customer language preference

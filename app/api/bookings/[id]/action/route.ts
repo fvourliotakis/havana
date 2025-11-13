@@ -87,14 +87,14 @@ export async function POST(
       customerPhone: booking.customerPhone,
       customerAddress: booking.customerAddress,
       customerCity: booking.customerCity,
-      customerState: booking.customerState,
+      customerState: booking.customerState || '',
       customerZip: booking.customerZip,
       customerCountry: booking.customerCountry,
-      eventType: booking.eventType,
+      eventType: booking.eventType || '',
       guestCount: booking.guestCount,
-      specialNotes: booking.specialNotes,
+      specialNotes: booking.specialNotes || undefined,
       totalAmount: booking.totalAmount,
-      paymentMethod: booking.paymentMethod,
+      paymentMethod: booking.paymentMethod || 'reservation',
       status: booking.status,
       paymentStatus: booking.paymentStatus,
       createdAt: booking.createdAt.toISOString(),
@@ -107,9 +107,9 @@ export async function POST(
         totalHours: date.totalHours,
         cartCost: date.cartCost
       })),
-      shippingAmount: booking.shippingAmount,
-      couponCode: booking.couponCode,
-      discountAmount: booking.discountAmount
+      shippingAmount: booking.shippingAmount || 0,
+      couponCode: booking.couponCode || undefined,
+      discountAmount: booking.discountAmount || 0
     }
 
     // Handle different actions
