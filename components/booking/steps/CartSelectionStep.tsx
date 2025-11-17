@@ -17,7 +17,6 @@ interface CartSelectionStepProps {
   formData: Partial<BookingFormData>
   updateFormData: (data: Partial<BookingFormData>) => void
   onNext: () => void
-  isEditMode?: boolean
 }
 
 // Havana van images as fallbacks
@@ -26,7 +25,7 @@ const HAVANA_VAN_IMAGES = [
   'https://havana.gr/wp-content/uploads/2025/06/vintage-van-on-transparent-background-free-png.webp'
 ]
 
-export default function CartSelectionStep({ formData, updateFormData, onNext, isEditMode = false }: CartSelectionStepProps) {
+export default function CartSelectionStep({ formData, updateFormData, onNext }: CartSelectionStepProps) {
   const [selectedCartId, setSelectedCartId] = useState(formData.selectedCartId || '')
   const { t } = useI18n()
 
@@ -123,15 +122,6 @@ export default function CartSelectionStep({ formData, updateFormData, onNext, is
 
   return (
     <div className="space-y-[4vh] lg:space-y-[1.2vw]">
-      {/* Edit Mode Banner */}
-      {/* {isEditMode && (
-        <div className="bg-yellow-600/20 border border-yellow-600/40 rounded-lg p-[2vh] lg:p-[1vw] text-center">
-          <p className="text-yellow-400 font-semibold text-[1.8vh] lg:text-[0.9vw]">
-            ✏️ EDIT MODE - Modifying existing booking
-          </p>
-        </div>
-      )} */}
-
       {/* Header */}
       <div className="text-center space-y-[1vh] lg:space-y-[0.3vw]">
         <div className="inline-flex items-center justify-center w-[6vh] h-[6vh] lg:w-[2vw] lg:h-[2vw] bg-gradient-to-br from-teal-500 to-teal-600 rounded-xl mb-[2vh] lg:mb-[0.6vw]">

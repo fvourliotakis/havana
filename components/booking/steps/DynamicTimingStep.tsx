@@ -893,43 +893,45 @@ export default function DynamicTimingStep({ formData, updateFormData, onNext, on
         </div>
       </div>
 
-      {/* Continue Button */}
-      <div className="flex justify-between pt-[2vh] lg:pt-[1vw]">
-        <Button
-          onClick={onPrevious}
-          variant="outline"
-          size="sm"
-          className="px-[2vh] lg:px-[2vw] py-[0vh] lg:py-[0.6vw] text-[1.6vh] lg:text-[0.9vw] font-semibold"
-        >
-          {t('previous')}
-        </Button>
+      {/* Continue Button - HIDDEN in edit mode */}
+      {!isEditMode && (
+        <div className="flex justify-between pt-[2vh] lg:pt-[1vw]">
+          <Button
+            onClick={onPrevious}
+            variant="outline"
+            size="sm"
+            className="px-[2vh] lg:px-[2vw] py-[0vh] lg:py-[0.6vw] text-[1.6vh] lg:text-[0.9vw] font-semibold"
+          >
+            {t('previous')}
+          </Button>
 
-        <div className="text-center">
-        <Button
-          onClick={handleNext}
-            disabled={!isValid}
-          size="sm"
-          className="px-[2vh] lg:px-[2vw] py-[1.2vh] lg:py-[0.6vw] text-[1.4vh] lg:text-[0.9vw] font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-            {selectedDates.length === 0 
-              ? t('continue')
-              : isSingleDay 
-              ? `${t('continue')} (1 ${t('day')})`
-              : `${t('continue')} (${selectedDates.length} ${t('days')}, 24h ${t('each')})`
-            }
-        </Button>
-          {!isValid && (
-            <p className="text-red-400 text-[1vh] lg:text-[0.5vw] mt-[0.5vh] lg:mt-[0.25vw]">
-              {selectedDates.length === 0
-                ? t('please_select_at_least_one_date')
+          <div className="text-center">
+          <Button
+            onClick={handleNext}
+              disabled={!isValid}
+            size="sm"
+            className="px-[2vh] lg:px-[2vw] py-[1.2vh] lg:py-[0.6vw] text-[1.4vh] lg:text-[0.9vw] font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+              {selectedDates.length === 0 
+                ? t('continue')
                 : isSingleDay 
-                ? t('please_set_start_end_times')
-                : t('multi_day_booking_ready_24h')
+                ? `${t('continue')} (1 ${t('day')})`
+                : `${t('continue')} (${selectedDates.length} ${t('days')}, 24h ${t('each')})`
               }
-            </p>
-          )}
+          </Button>
+            {!isValid && (
+              <p className="text-red-400 text-[1vh] lg:text-[0.5vw] mt-[0.5vh] lg:mt-[0.25vw]">
+                {selectedDates.length === 0
+                  ? t('please_select_at_least_one_date')
+                  : isSingleDay 
+                  ? t('please_set_start_end_times')
+                  : t('multi_day_booking_ready_24h')
+                }
+              </p>
+            )}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   )
 }

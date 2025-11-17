@@ -99,10 +99,102 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     const body = await request.json()
     const { searchParams } = new URL(request.url)
     const fullEdit = searchParams.get('fullEdit') === 'true'
+    const datesOnly = searchParams.get('datesOnly') === 'true'
 
     // TODO: Add authentication and authorization checks
 
-    if (fullEdit) {
+    if (datesOnly) {
+      // Date-only edit (admin only) - only update dates and send email
+      const { selectedDates } = body
+
+      if (!selectedDates || !Array.isArray(selectedDates) || selectedDates.length === 0) {
+        return NextResponse.json(
+          { error: 'selectedDates is required and must be a non-empty array' },
+          { status: 400 }
+        )
+      }
+
+      // Fetch existing booking to get old dates for comparison
+      const existingBooking = await prisma.booking.findUnique({
+        where: { id },
+        include: {
+          bookingDates: true,
+          cart: { select: { name: true, pricePerHour: true } }
+        }
+      })
+
+      if (!existingBooking) {
+        return NextResponse.json({ error: 'Booking not found' }, { status: 404 })
+      }
+
+      // Store old dates for email
+      const oldDates = existingBooking.bookingDates?.map((bd: any) => ({
+        date: bd.date,
+        startTime: bd.startTime,
+        endTime: bd.endTime
+      })) || []
+
+      // Update dates in transaction
+      const updatedBooking = await prisma.$transaction(async (tx) => {
+        // Delete old dates
+        await (tx as any).bookingDate.deleteMany({
+          where: { bookingId: id }
+        })
+        
+        // Create new dates
+        await (tx as any).bookingDate.createMany({
+          data: selectedDates.map((date: any) => ({
+            bookingId: id,
+            date: new Date(date.date),
+            startTime: date.startTime,
+            endTime: date.endTime,
+            totalHours: date.totalHours,
+            cartCost: date.cartCost,
+            isAvailable: true
+          }))
+        })
+
+        // Recalculate cart service amount
+        const newCartServiceAmount = selectedDates.reduce((sum: number, date: any) => sum + (date.cartCost || 0), 0)
+
+        // Update booking with new totals
+        return await tx.booking.update({
+          where: { id },
+          data: {
+            cartServiceAmount: newCartServiceAmount,
+            totalAmount: newCartServiceAmount + (existingBooking.foodAmount || 0) + (existingBooking.servicesAmount || 0) + (existingBooking.shippingAmount || 0),
+            updatedAt: new Date()
+          }
+        })
+      })
+
+      // Send email notification to customer
+      try {
+        const { emailService } = await import('@/lib/email/service')
+        await emailService.sendBookingDatesUpdatedEmail(
+          existingBooking.customerEmail || '',
+          {
+            customerFirstName: existingBooking.customerFirstName || '',
+            customerLastName: existingBooking.customerLastName || '',
+            bookingId: existingBooking.id,
+            cartName: existingBooking.cart?.name || 'Food Cart',
+            oldDates,
+            newDates: selectedDates,
+            totalAmount: updatedBooking.totalAmount
+          },
+          'el' // TODO: Get language from booking or default
+        )
+      } catch (emailError) {
+        console.error('Failed to send booking dates updated email:', emailError)
+        // Don't fail the request if email fails
+      }
+
+      return NextResponse.json({
+        success: true,
+        booking: updatedBooking,
+        message: 'Booking dates updated successfully'
+      })
+    } else if (fullEdit) {
       // Full booking edit (admin only) - includes dates, items, services
       const {
         customerFirstName,

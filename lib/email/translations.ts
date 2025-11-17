@@ -111,6 +111,14 @@ export const emailTranslations = {
     booking_cancelled_by_customer: 'Ο πελάτης ακύρωσε την κράτηση',
     payment_proof_submitted: 'Αποδεικτικό πληρωμής υποβλήθηκε',
     action_completed_successfully: 'Η ενέργεια ολοκληρώθηκε με επιτυχία',
+    
+    // Booking Dates Updated
+    booking_dates_updated_title: 'Οι Ημερομηνίες Κράτησης Ενημερώθηκαν',
+    booking_dates_updated_message: 'Οι ημερομηνίες της κράτησής σας ενημερώθηκαν από την ομάδα μας.',
+    previous_dates: 'Προηγούμενες Ημερομηνίες',
+    new_dates: 'Νέες Ημερομηνίες',
+    updated_total_amount: 'Ενημερωμένο Συνολικό Ποσό',
+    dates_change_notice: 'Παρακαλώ ελέγξτε τις ενημερωμένες ημερομηνίες της κράτησής σας.',
   },
 
   // English
@@ -225,6 +233,14 @@ export const emailTranslations = {
     booking_cancelled_by_customer: 'Customer cancelled the booking',
     payment_proof_submitted: 'Payment proof submitted',
     action_completed_successfully: 'Action completed successfully',
+    
+    // Booking Dates Updated
+    booking_dates_updated_title: 'Booking Dates Updated',
+    booking_dates_updated_message: 'Your booking dates have been updated by our team.',
+    previous_dates: 'Previous Dates',
+    new_dates: 'New Dates',
+    updated_total_amount: 'Updated Total Amount',
+    dates_change_notice: 'Please review the updated dates for your booking.',
   }
 }
 

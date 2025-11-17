@@ -24,15 +24,15 @@ export class EmailTemplateRenderer {
     return formatEmailText(text, variables)
   }
 
-  private formatDate(dateString: string): string {
-    const date = new Date(dateString)
-    const format = this.t('date_format' as any)
-    
-    if (format === 'DD/MM/YYYY') {
-      return date.toLocaleDateString('el-GR')
-    } else {
-      return date.toLocaleDateString('en-US')
-    }
+  private formatDate(dateInput: string | Date): string {
+    const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput
+    // Directly check language instead of relying on translation key
+    return date.toLocaleDateString(this.language === 'el' ? 'el-GR' : 'en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    })
   }
 
   private formatTime(timeString: string): string {
@@ -1140,6 +1140,240 @@ ${t('email_footer')}
                         ${t('cancel_booking_button')}
                     </a>
                 `}
+            </div>
+        </div>
+
+        <div class="footer">
+            <p><strong>${t('booking_confirmation_footer')}</strong></p>
+            <p>${t('booking_confirmation_contact_support')}</p>
+            <p style="font-size: 12px; opacity: 0.8; margin-top: 15px;">
+                ${t('email_footer')}
+            </p>
+        </div>
+    </div>
+</body>
+</html>
+    `
+  }
+
+  /**
+   * Render booking dates updated notification template
+   * This template notifies customer of date changes made by admin
+   */
+  renderBookingDatesUpdatedTemplate(data: {
+    customerFirstName: string
+    customerLastName: string
+    bookingId: string
+    cartName: string
+    oldDates: Array<{ date: Date | string; startTime: string; endTime: string }>
+    newDates: Array<{ date: string; startTime: string; endTime: string }>
+    totalAmount: number
+  }): string {
+    const t = this.t.bind(this)
+    const format = this.format.bind(this)
+
+    return `
+<!DOCTYPE html>
+<html lang="${this.language}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${t('booking_dates_updated_title')}</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .header {
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            color: white;
+            padding: 30px 20px;
+            text-align: center;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 28px;
+            font-weight: bold;
+        }
+        .header p {
+            margin: 10px 0 0 0;
+            opacity: 0.9;
+            font-size: 16px;
+        }
+        .content {
+            padding: 30px 20px;
+        }
+        .greeting {
+            font-size: 18px;
+            margin-bottom: 20px;
+            color: #1e293b;
+        }
+        .section {
+            margin-bottom: 25px;
+            padding: 20px;
+            background-color: #f8fafc;
+            border-radius: 6px;
+            border-left: 4px solid #0ea5e9;
+        }
+        .section h2 {
+            margin: 0 0 15px 0;
+            color: #1e293b;
+            font-size: 20px;
+            font-weight: 600;
+        }
+        .date-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            padding: 8px 0;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        .date-row:last-child {
+            border-bottom: none;
+        }
+        .date-label {
+            font-weight: 600;
+            color: #475569;
+        }
+        .date-value {
+            color: #1e293b;
+            text-align: right;
+        }
+        .alert-box {
+            background-color: #fef3c7;
+            border: 1px solid #fbbf24;
+            border-radius: 6px;
+            padding: 15px;
+            margin: 20px 0;
+        }
+        .alert-box p {
+            margin: 0;
+            color: #92400e;
+            font-size: 14px;
+        }
+        .booking-dates {
+            background-color: #ecfdf5;
+            border-left-color: #10b981;
+        }
+        .payment-info {
+            background-color: #fef3c7;
+            border-left-color: #f59e0b;
+        }
+        .total-amount {
+            font-size: 18px;
+            font-weight: bold;
+            color: #059669;
+            text-align: center;
+            padding: 15px;
+            background-color: #ecfdf5;
+            border-radius: 6px;
+            margin: 20px 0;
+        }
+        .footer {
+            background-color: #1e293b;
+            color: white;
+            padding: 20px;
+            text-align: center;
+            font-size: 14px;
+        }
+        .footer p {
+            margin: 5px 0;
+        }
+        @media (max-width: 600px) {
+            .container {
+                margin: 0;
+                border-radius: 0;
+            }
+            .content {
+                padding: 20px 15px;
+            }
+            .date-row {
+                flex-direction: column;
+            }
+            .date-value {
+                text-align: left;
+                margin-top: 5px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>${t('booking_dates_updated_title')}</h1>
+            <p style="color: white; opacity: 0.9; margin: 10px 0 0 0;">Havana Van Booking System</p>
+        </div>
+
+        <div class="content">
+            <div class="greeting">
+                ${format(t('booking_confirmation_greeting'), {
+                  firstName: data.customerFirstName,
+                  lastName: data.customerLastName
+                })}
+            </div>
+
+            <p style="font-size: 16px; color: #475569; margin-bottom: 25px;">
+                ${t('booking_dates_updated_message')}
+            </p>
+
+            <div class="alert-box">
+                <p><strong>${t('dates_change_notice')}</strong></p>
+            </div>
+
+            <!-- Booking Info -->
+            <div class="section">
+                <h2>${t('booking_confirmation_details')}</h2>
+                <div class="date-row">
+                    <span class="date-label">${t('booking_confirmation_number')}:</span>
+                    <span class="date-value">#${data.bookingId}</span>
+                </div>
+                <div class="date-row">
+                    <span class="date-label">${t('booking_confirmation_cart')}:</span>
+                    <span class="date-value">${data.cartName}</span>
+                </div>
+            </div>
+
+            <!-- Previous Dates -->
+            <div class="section">
+                <h2>${t('previous_dates')}</h2>
+                ${data.oldDates.map((date, index) => `
+                    <div class="date-row">
+                        <span class="date-label">${this.formatDate(date.date)}</span>
+                        <span class="date-value">${date.startTime} - ${date.endTime}</span>
+                    </div>
+                `).join('')}
+            </div>
+
+            <!-- New Dates -->
+            <div class="section booking-dates">
+                <h2>${t('new_dates')}</h2>
+                ${data.newDates.map((date, index) => `
+                    <div class="date-row">
+                        <span class="date-label">${this.formatDate(date.date)}</span>
+                        <span class="date-value">${date.startTime} - ${date.endTime}</span>
+                    </div>
+                `).join('')}
+            </div>
+
+            <!-- Total Amount -->
+            <div class="section payment-info">
+                <h2>${t('updated_total_amount')}</h2>
+                <div class="date-row">
+                    <span class="date-label">${t('booking_confirmation_total_amount')}:</span>
+                    <span class="date-value" style="font-size: 18px; font-weight: bold; color: #059669;">€${data.totalAmount.toFixed(2)}</span>
+                </div>
             </div>
         </div>
 

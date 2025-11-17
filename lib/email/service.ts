@@ -154,6 +154,36 @@ export class EmailService {
     })
   }
 
+  /**
+   * Send booking dates updated notification email to customer
+   */
+  async sendBookingDatesUpdatedEmail(
+    customerEmail: string,
+    data: {
+      customerFirstName: string
+      customerLastName: string
+      bookingId: string
+      cartName: string
+      oldDates: Array<{ date: Date | string; startTime: string; endTime: string }>
+      newDates: Array<{ date: string; startTime: string; endTime: string }>
+      totalAmount: number
+    },
+    language: 'el' | 'en' = 'el'
+  ): Promise<EmailResult> {
+    const subject = language === 'el'
+      ? 'Οι Ημερομηνίες Κράτησης Ενημερώθηκαν - Havana Food Cart'
+      : 'Booking Dates Updated - Havana Food Cart'
+
+    const templateRenderer = new EmailTemplateRenderer(language)
+    const html = templateRenderer.renderBookingDatesUpdatedTemplate(data)
+
+    return this.sendEmail({
+      to: customerEmail,
+      subject,
+      html
+    })
+  }
+
 }
 
 // Singleton instance
