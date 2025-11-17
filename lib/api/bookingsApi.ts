@@ -59,13 +59,43 @@ export const bookingsApi = apiSlice.injectEndpoints({
       ],
     }),
 
-    // Cancel booking
+    // Cancel booking (soft delete)
     cancelBooking: builder.mutation<{ message: string }, string>({
       query: (id) => ({
         url: `/bookings/${id}`,
         method: 'DELETE',
       }),
       invalidatesTags: (result, error, id) => [
+        { type: 'Booking', id },
+        'Booking',
+        'Dashboard'
+      ],
+    }),
+
+    // Permanently delete booking (admin only)
+    deleteBooking: builder.mutation<{ message: string; deleted: boolean }, string>({
+      query: (id) => ({
+        url: `/bookings/${id}?permanent=true`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: (result, error, id) => [
+        { type: 'Booking', id },
+        'Booking',
+        'Dashboard'
+      ],
+    }),
+
+    // Update booking (full edit - admin only)
+    updateBooking: builder.mutation<{ success: boolean; booking: Booking; message: string }, {
+      id: string
+      data: Partial<BookingFormData>
+    }>({
+      query: ({ id, data }) => ({
+        url: `/bookings/${id}?fullEdit=true`,
+        method: 'PUT',
+        body: data,
+      }),
+      invalidatesTags: (result, error, { id }) => [
         { type: 'Booking', id },
         'Booking',
         'Dashboard'
@@ -108,9 +138,14 @@ export const bookingsApi = apiSlice.injectEndpoints({
         status: string
       }> }
       totalBookings: number
-    }, { cartId: string; startDate: string; endDate: string }>({
-      query: ({ cartId, startDate, endDate }) => 
-        `/availability/bulk?cartId=${cartId}&startDate=${startDate}&endDate=${endDate}`,
+    }, { cartId: string; startDate: string; endDate: string; excludeBookingId?: string }>({
+      query: ({ cartId, startDate, endDate, excludeBookingId }) => {
+        let url = `/availability/bulk?cartId=${cartId}&startDate=${startDate}&endDate=${endDate}`
+        if (excludeBookingId) {
+          url += `&excludeBookingId=${excludeBookingId}`
+        }
+        return url
+      },
       providesTags: ['Booking'],
       // Cache for 5 minutes since booking data doesn't change frequently
       keepUnusedDataFor: 300
@@ -144,6 +179,8 @@ export const {
   useCreateBookingMutation,
   useUpdateBookingStatusMutation,
   useCancelBookingMutation,
+  useDeleteBookingMutation,
+  useUpdateBookingMutation,
   useGetAvailabilityQuery,
   useGetBulkAvailabilityQuery,
   useGetDashboardStatsQuery,

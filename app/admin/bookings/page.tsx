@@ -7,10 +7,11 @@ import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
 import Select from '@/components/ui/Select'
 import { clsx } from 'clsx'
-import { useGetBookingsQuery, useUpdateBookingStatusMutation, useCancelBookingMutation } from '../../../lib/api/bookingsApi'
+import { useGetBookingsQuery, useUpdateBookingStatusMutation, useCancelBookingMutation, useDeleteBookingMutation } from '../../../lib/api/bookingsApi'
 import { useAdminI18n } from '../../../lib/i18n/admin-context'
 import type { Booking } from '../../../types/booking'
-import { Calendar, FileText, AlertTriangle, CheckCircle, Building2, X, Eye, Check, User, Mail, Phone, MapPin, Clock, CreditCard, Truck, Users, Globe, ExternalLink } from 'lucide-react'
+import { Calendar, FileText, AlertTriangle, CheckCircle, Building2, X, Eye, Check, User, Mail, Phone, MapPin, Clock, CreditCard, Truck, Users, Globe, ExternalLink, Edit2, Trash2 } from 'lucide-react'
+import AdminBookingModal from '../../../components/admin/AdminBookingModal'
 
 export default function BookingsPage() {
   const { t } = useAdminI18n()
@@ -21,6 +22,10 @@ export default function BookingsPage() {
   const [expandedBookingId, setExpandedBookingId] = useState<string | null>(null)
   const [verificationNotes, setVerificationNotes] = useState('')
   const [verifying, setVerifying] = useState(false)
+  const [editModalOpen, setEditModalOpen] = useState(false)
+  const [bookingToEdit, setBookingToEdit] = useState<any>(null)
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
+  const [bookingToDelete, setBookingToDelete] = useState<string | null>(null)
   const itemsPerPage = 10
 
   // Debounce search term to avoid too many API calls
@@ -47,6 +52,7 @@ export default function BookingsPage() {
 
   const [updateBookingStatusMutation] = useUpdateBookingStatusMutation()
   const [cancelBookingMutation] = useCancelBookingMutation()
+  const [deleteBookingMutation] = useDeleteBookingMutation()
 
   const bookings = bookingsData?.bookings || []
   const totalPages = bookingsData?.totalPages || 1
@@ -69,6 +75,33 @@ export default function BookingsPage() {
       // RTK Query will automatically refetch and update the UI
     } catch (error) {
       console.error('Failed to cancel booking:', error)
+    }
+  }
+
+  // Handle edit booking
+  const handleEditBooking = (booking: any) => {
+    setBookingToEdit(booking)
+    setEditModalOpen(true)
+  }
+
+  // Handle delete booking (with confirmation)
+  const handleDeleteBooking = (bookingId: string) => {
+    setBookingToDelete(bookingId)
+    setDeleteConfirmOpen(true)
+  }
+
+  // Confirm delete
+  const confirmDelete = async () => {
+    if (!bookingToDelete) return
+    
+    try {
+      await deleteBookingMutation(bookingToDelete).unwrap()
+      setDeleteConfirmOpen(false)
+      setBookingToDelete(null)
+      refetch()
+    } catch (error) {
+      console.error('Failed to delete booking:', error)
+      alert('Failed to delete booking. Please try again.')
     }
   }
 
@@ -351,7 +384,27 @@ export default function BookingsPage() {
                         </Button>
                       )}
                       
+                      {/* Edit Button */}
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => handleEditBooking(booking)}
+                        className="text-blue-400 hover:text-blue-300 hover:bg-blue-400/10"
+                      >
+                        <Edit2 className="w-4 h-4 mr-1" />
+                        Edit
+                      </Button>
 
+                      {/* Delete Button */}
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => handleDeleteBooking(booking.id)}
+                        className="text-red-400 hover:text-red-300 hover:bg-red-400/10"
+                      >
+                        <Trash2 className="w-4 h-4 mr-1" />
+                        Delete
+                      </Button>
                       
                       <Button
                         size="sm"
@@ -1048,7 +1101,68 @@ export default function BookingsPage() {
         </CardContent>
       </Card>
 
+      {/* Edit Booking Modal */}
+      <AdminBookingModal
+        isOpen={editModalOpen}
+        onClose={() => {
+          setEditModalOpen(false)
+          setBookingToEdit(null)
+        }}
+        onSuccess={() => {
+          setEditModalOpen(false)
+          setBookingToEdit(null)
+          refetch()
+        }}
+        bookingToEdit={bookingToEdit}
+      />
 
+      {/* Delete Confirmation Dialog */}
+      {deleteConfirmOpen && (
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-black/70">
+          <div className="bg-slate-800 rounded-lg shadow-2xl border border-red-500/30 max-w-md w-full p-6 animate-fadeIn">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-bold text-white flex items-center">
+                <AlertTriangle className="w-6 h-6 mr-2 text-red-400" />
+                Delete Booking
+              </h3>
+              <button
+                onClick={() => {
+                  setDeleteConfirmOpen(false)
+                  setBookingToDelete(null)
+                }}
+                className="p-2 hover:bg-slate-700 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5 text-gray-400" />
+              </button>
+            </div>
+            
+            <p className="text-gray-300 mb-6">
+              Are you sure you want to permanently delete this booking? This action cannot be undone.
+            </p>
+            
+            <div className="flex justify-end space-x-3">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setDeleteConfirmOpen(false)
+                  setBookingToDelete(null)
+                }}
+                size="md"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={confirmDelete}
+                className="bg-red-600 hover:bg-red-700 text-white"
+                size="md"
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                Delete Permanently
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

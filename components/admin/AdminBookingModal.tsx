@@ -9,18 +9,20 @@ import { I18nProvider } from '@/lib/i18n/context'
 import CartSelectionStep from '../booking/steps/CartSelectionStep'
 import DynamicTimingStep from '../booking/steps/DynamicTimingStep'
 import CustomerInfoStep from '../booking/steps/CustomerInfoStep'
-import { useCreateBookingMutation } from '@/lib/api/bookingsApi'
+import { useCreateBookingMutation, useUpdateBookingMutation } from '@/lib/api/bookingsApi'
 import { clsx } from 'clsx'
 
 interface AdminBookingModalProps {
   isOpen: boolean
   onClose: () => void
   onSuccess: () => void
+  bookingToEdit?: any // Booking data for edit mode
 }
 
 type AdminBookingStep = 'cart' | 'timing' | 'customer' | 'payment' | 'confirm'
 
-function AdminBookingModalContent({ isOpen, onClose, onSuccess }: AdminBookingModalProps) {
+function AdminBookingModalContent({ isOpen, onClose, onSuccess, bookingToEdit }: AdminBookingModalProps) {
+  const isEditMode = !!bookingToEdit
   const [currentStep, setCurrentStep] = useState<AdminBookingStep>('cart')
   const [formData, setFormData] = useState<Partial<BookingFormData>>({
     selectedItems: [],
@@ -42,7 +44,85 @@ function AdminBookingModalContent({ isOpen, onClose, onSuccess }: AdminBookingMo
     selectedBankId: undefined
   })
 
-  const [createBooking, { isLoading }] = useCreateBookingMutation()
+  const [createBooking, { isLoading: isCreating }] = useCreateBookingMutation()
+  const [updateBooking, { isLoading: isUpdating }] = useUpdateBookingMutation()
+  const isLoading = isCreating || isUpdating
+
+  // Fetch complete booking data when editing
+  useEffect(() => {
+    if (bookingToEdit && isOpen) {
+      // Fetch complete booking data with all relations
+      fetch(`/api/bookings/${bookingToEdit.id}`)
+        .then(res => res.json())
+        .then((fullBooking) => {
+          // Transform bookingItems to match selectedItems format
+          const transformedItems = fullBooking.bookingItems?.map((item: any) => ({
+            id: item.foodItem?.id || item.foodItemId,
+            name: item.foodItem?.name || 'Unknown Item',
+            price: item.price,
+            quantity: item.quantity,
+            category: item.foodItem?.category || ''
+          })) || []
+
+          // Transform bookingServices to match selectedServices format
+          const transformedServices = fullBooking.bookingServices?.map((service: any) => ({
+            id: service.service?.id || service.serviceId,
+            name: service.service?.name || 'Unknown Service',
+            pricePerHour: service.pricePerHour,
+            quantity: service.quantity,
+            hours: service.hours,
+            category: service.service?.category || ''
+          })) || []
+
+          // Transform bookingDates
+          const transformedDates = (fullBooking.bookingDates || []).map((bd: any) => ({
+            date: bd.date instanceof Date ? bd.date.toISOString().split('T')[0] : bd.date.split('T')[0],
+            startTime: bd.startTime,
+            endTime: bd.endTime,
+            totalHours: bd.totalHours,
+            cartCost: bd.cartCost
+          }))
+
+          setFormData({
+            // Customer Info
+            customerFirstName: fullBooking.customerFirstName || '',
+            customerLastName: fullBooking.customerLastName || '',
+            customerEmail: fullBooking.customerEmail || '',
+            customerPhone: fullBooking.customerPhone || '',
+            customerAddress: fullBooking.customerAddress || '',
+            customerCity: fullBooking.customerCity || '',
+            customerState: fullBooking.customerState || '',
+            customerZip: fullBooking.customerZip || '',
+            customerCountry: fullBooking.customerCountry || 'Greece',
+            eventType: fullBooking.eventType || '',
+            guestCount: fullBooking.guestCount || 0,
+            specialNotes: fullBooking.specialNotes || '',
+            
+            // Booking Details (editable in edit mode)
+            selectedCartId: fullBooking.cartId || fullBooking.cart?.id,
+            selectedItems: transformedItems,
+            selectedServices: transformedServices,
+            selectedDates: transformedDates,
+            
+            // Payment & Totals
+            paymentMethod: fullBooking.paymentMethod || 'reservation',
+            selectedBankId: fullBooking.selectedBankId,
+            totalAmount: fullBooking.totalAmount || 0,
+            cartServiceAmount: fullBooking.cartServiceAmount || 0,
+            foodAmount: fullBooking.foodAmount || 0,
+            servicesAmount: fullBooking.servicesAmount || 0,
+            shippingAmount: fullBooking.shippingAmount || 0,
+            deliveryMethod: fullBooking.deliveryMethod || 'pickup'
+          })
+          
+          setCurrentStep('cart')
+        })
+        .catch(error => {
+          console.error('Error fetching complete booking data:', error)
+          alert('Failed to load booking data for editing')
+        })
+    }
+  }, [bookingToEdit, isOpen])
 
   const updateFormData = (data: Partial<BookingFormData>) => {
     setFormData(prev => ({ ...prev, ...data }))
@@ -56,6 +136,7 @@ function AdminBookingModalContent({ isOpen, onClose, onSuccess }: AdminBookingMo
   }
 
   const goToPreviousStep = () => {
+    // Same navigation for both create and edit mode
     if (currentStep === 'timing') setCurrentStep('cart')
     else if (currentStep === 'customer') setCurrentStep('timing')
     else if (currentStep === 'payment') setCurrentStep('customer')
@@ -64,58 +145,101 @@ function AdminBookingModalContent({ isOpen, onClose, onSuccess }: AdminBookingMo
 
   const handleConfirmBooking = async () => {
     try {
-      // Calculate totals
+      // Calculate totals (for both create and edit)
       const cartServiceAmount = formData.selectedDates?.reduce((sum, date) => sum + date.cartCost, 0) || 0
       const foodAmount = formData.selectedItems?.reduce((sum, item) => sum + (item.price * item.quantity), 0) || 0
       const servicesAmount = formData.selectedServices?.reduce((sum, service) => sum + ((service.pricePerHour || 0) * (service.hours || 0) * service.quantity), 0) || 0
       const totalAmount = cartServiceAmount + foodAmount + servicesAmount + (formData.shippingAmount || 0)
 
-      const bookingPayload = {
-        ...formData,
-        selectedCartId: formData.selectedCartId || '',
-        cartServiceAmount,
-        foodAmount,
-        servicesAmount,
-        totalAmount,
-        paymentMethod: formData.paymentMethod || 'reservation',
-        selectedBankId: formData.selectedBankId,
-        paymentStatus: 'PENDING',
-        isAdminCreated: true, // Flag to trigger special email
-        // Legacy fields for backward compatibility
-        bookingDate: formData.selectedDates?.[0]?.date || '',
-        startTime: formData.selectedDates?.[0]?.startTime || '',
-        endTime: formData.selectedDates?.[0]?.endTime || '',
-        totalHours: formData.selectedDates?.[0]?.totalHours || 0
-      } as BookingFormData & { isAdminCreated: boolean }
+      if (isEditMode && bookingToEdit) {
+        // Edit mode: Update ALL booking data
+        const updateData = {
+          // Customer Info
+          customerFirstName: formData.customerFirstName,
+          customerLastName: formData.customerLastName,
+          customerEmail: formData.customerEmail,
+          customerPhone: formData.customerPhone,
+          customerAddress: formData.customerAddress,
+          customerCity: formData.customerCity,
+          customerState: formData.customerState,
+          customerZip: formData.customerZip,
+          customerCountry: formData.customerCountry,
+          eventType: formData.eventType,
+          guestCount: formData.guestCount,
+          specialNotes: formData.specialNotes,
+          
+          // Booking Details
+          selectedCartId: formData.selectedCartId,
+          selectedDates: formData.selectedDates,
+          selectedItems: formData.selectedItems,
+          selectedServices: formData.selectedServices,
+          
+          // Payment & Totals
+          paymentMethod: formData.paymentMethod,
+          selectedBankId: formData.selectedBankId,
+          totalAmount,
+          cartServiceAmount,
+          foodAmount,
+          servicesAmount,
+          shippingAmount: formData.shippingAmount,
+          deliveryMethod: formData.deliveryMethod
+        }
 
-      await createBooking(bookingPayload).unwrap()
-      onSuccess()
-      
-      // Reset form
-      setFormData({
-        selectedItems: [],
-        selectedServices: [],
-        selectedDates: [],
-        totalAmount: 0,
-        deliveryMethod: 'pickup',
-        shippingAmount: 0,
-        customerFirstName: '',
-        customerLastName: '',
-        customerEmail: '',
-        customerPhone: '',
-        customerAddress: '',
-        customerCity: '',
-        customerState: '',
-        customerZip: '',
-        customerCountry: 'Greece'
-      })
-      setCurrentStep('cart')
+        await updateBooking({ id: bookingToEdit.id, data: updateData }).unwrap()
+        alert('Booking updated successfully!')
+        onSuccess()
+        onClose()
+      } else {
+        // Create mode: Create new booking
+        const bookingPayload = {
+          ...formData,
+          selectedCartId: formData.selectedCartId || '',
+          cartServiceAmount,
+          foodAmount,
+          servicesAmount,
+          totalAmount,
+          paymentMethod: formData.paymentMethod || 'reservation',
+          selectedBankId: formData.selectedBankId,
+          paymentStatus: 'PENDING',
+          isAdminCreated: true, // Flag to trigger special email
+          // Legacy fields for backward compatibility
+          bookingDate: formData.selectedDates?.[0]?.date || '',
+          startTime: formData.selectedDates?.[0]?.startTime || '',
+          endTime: formData.selectedDates?.[0]?.endTime || '',
+          totalHours: formData.selectedDates?.[0]?.totalHours || 0
+        } as BookingFormData & { isAdminCreated: boolean }
+
+        await createBooking(bookingPayload).unwrap()
+        onSuccess()
+        
+        // Reset form
+        setFormData({
+          selectedItems: [],
+          selectedServices: [],
+          selectedDates: [],
+          totalAmount: 0,
+          deliveryMethod: 'pickup',
+          shippingAmount: 0,
+          customerFirstName: '',
+          customerLastName: '',
+          customerEmail: '',
+          customerPhone: '',
+          customerAddress: '',
+          customerCity: '',
+          customerState: '',
+          customerZip: '',
+          customerCountry: 'Greece',
+          paymentMethod: 'reservation',
+          selectedBankId: undefined
+        })
+        setCurrentStep('cart')
+      }
     } catch (error: any) {
-      console.error('Failed to create booking:', error)
+      console.error(`Failed to ${isEditMode ? 'update' : 'create'} booking:`, error)
       
       // Show detailed error to user
       const errorMessage = error?.data?.details || error?.data?.error || error?.message || 'Unknown error'
-      alert(`Failed to create booking: ${errorMessage}`)
+      alert(`Failed to ${isEditMode ? 'update' : 'create'} booking: ${errorMessage}`)
     }
   }
 
@@ -141,13 +265,15 @@ function AdminBookingModalContent({ isOpen, onClose, onSuccess }: AdminBookingMo
         {/* Header */}
         <div className="flex items-center justify-between px-[3vh] lg:px-[1.5vw] py-[2vh] lg:py-[1vw] bg-slate-800 border-b border-slate-700">
           <div>
-            <h2 className="text-[2.5vh] lg:text-[1.2vw] font-bold text-white">Create Booking (Admin)</h2>
+            <h2 className="text-[2.5vh] lg:text-[1.2vw] font-bold text-white">
+              {isEditMode ? 'Edit Booking' : 'Create Booking (Admin)'}
+            </h2>
             <p className="text-gray-400 text-[1.4vh] lg:text-[0.7vw] mt-[0.5vh] lg:mt-[0.25vw]">
-              {currentStep === 'cart' && 'Step 1: Select Cart'}
-              {currentStep === 'timing' && 'Step 2: Choose Dates & Times'}
-              {currentStep === 'customer' && 'Step 3: Customer Information'}
-              {currentStep === 'payment' && 'Step 4: Payment Method'}
-              {currentStep === 'confirm' && 'Step 5: Confirm Booking'}
+              {currentStep === 'cart' && `Step 1: Select Cart${isEditMode ? ' (Editing)' : ''}`}
+              {currentStep === 'timing' && `Step 2: Choose Dates & Times${isEditMode ? ' (Editing)' : ''}`}
+              {currentStep === 'customer' && `Step 3: Customer Information${isEditMode ? ' (Editing)' : ''}`}
+              {currentStep === 'payment' && `Step 4: Payment Method${isEditMode ? ' (Editing)' : ''}`}
+              {currentStep === 'confirm' && `Step 5: ${isEditMode ? 'Confirm Changes' : 'Confirm Booking'}`}
             </p>
           </div>
           <button
@@ -166,6 +292,7 @@ function AdminBookingModalContent({ isOpen, onClose, onSuccess }: AdminBookingMo
                 formData={formData}
                 updateFormData={updateFormData}
                 onNext={goToNextStep}
+                isEditMode={isEditMode}
               />
             )}
 
@@ -175,6 +302,8 @@ function AdminBookingModalContent({ isOpen, onClose, onSuccess }: AdminBookingMo
                 updateFormData={updateFormData}
                 onNext={goToNextStep}
                 onPrevious={goToPreviousStep}
+                isEditMode={isEditMode}
+                bookingId={bookingToEdit?.id}
               />
             )}
 
@@ -255,7 +384,7 @@ function AdminBookingModalContent({ isOpen, onClose, onSuccess }: AdminBookingMo
                     size="md"
                     className="px-[3vh] lg:px-[1.5vw] bg-teal-600 hover:bg-teal-700"
                   >
-                    {isLoading ? 'Creating...' : 'Create Booking'}
+                    {isLoading ? (isEditMode ? 'Updating...' : 'Creating...') : (isEditMode ? 'Update Booking' : 'Create Booking')}
                   </Button>
                 </div>
               </div>

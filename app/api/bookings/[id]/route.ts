@@ -45,6 +45,18 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
               }
             }
           }
+        },
+        bookingServices: {
+          include: {
+            service: {
+              select: {
+                id: true,
+                name: true,
+                pricePerHour: true,
+                category: true
+              }
+            }
+          }
         }
       }
     })
@@ -56,7 +68,21 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       )
     }
 
-    return NextResponse.json(booking)
+    // Fetch booking dates
+    let bookingDates: any[] = []
+    try {
+      bookingDates = await (prisma as any).bookingDate.findMany({
+        where: { bookingId: id },
+        orderBy: { date: 'asc' }
+      })
+    } catch (error) {
+      console.log('BookingDate table not found or error fetching dates:', error)
+    }
+
+    return NextResponse.json({
+      ...booking,
+      bookingDates
+    })
   } catch (error) {
     console.error('Error fetching booking:', error)
     return NextResponse.json(
@@ -66,114 +92,199 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
   }
 }
 
-// PUT /api/bookings/[id] - Update booking status
+// PUT /api/bookings/[id] - Update booking (status or full edit)
 export async function PUT(request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params
     const body = await request.json()
-    const { status, paymentStatus, specialNotes } = body
+    const { searchParams } = new URL(request.url)
+    const fullEdit = searchParams.get('fullEdit') === 'true'
 
     // TODO: Add authentication and authorization checks
 
-    const updatedBooking = await prisma.booking.update({
-      where: {
-        id: id
-      },
-      data: {
-        ...(status && { status }),
-        ...(paymentStatus && { paymentStatus }),
-        ...(specialNotes !== undefined && { specialNotes })
-      },
-      include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true
+    if (fullEdit) {
+      // Full booking edit (admin only) - includes dates, items, services
+      const {
+        customerFirstName,
+        customerLastName,
+        customerEmail,
+        customerPhone,
+        customerAddress,
+        customerCity,
+        customerState,
+        customerZip,
+        customerCountry,
+        eventType,
+        guestCount,
+        specialNotes,
+        status,
+        paymentStatus,
+        paymentMethod,
+        selectedBankId,
+        selectedCartId,
+        selectedDates,
+        selectedItems,
+        selectedServices,
+        totalAmount,
+        cartServiceAmount,
+        foodAmount,
+        servicesAmount,
+        shippingAmount,
+        deliveryMethod
+      } = body
+
+      // Use transaction to update everything atomically
+      const updatedBooking = await prisma.$transaction(async (tx) => {
+        // Update booking basic info
+        const booking = await tx.booking.update({
+          where: { id },
+          data: {
+            ...(customerFirstName && { customerFirstName }),
+            ...(customerLastName && { customerLastName }),
+            ...(customerEmail && { customerEmail }),
+            ...(customerPhone && { customerPhone }),
+            ...(customerAddress && { customerAddress }),
+            ...(customerCity && { customerCity }),
+            ...(customerState !== undefined && { customerState }),
+            ...(customerZip && { customerZip }),
+            ...(customerCountry && { customerCountry }),
+            ...(eventType !== undefined && { eventType }),
+            ...(guestCount !== undefined && { guestCount }),
+            ...(specialNotes !== undefined && { specialNotes }),
+            ...(status && { status }),
+            ...(paymentStatus && { paymentStatus }),
+            ...(paymentMethod && { paymentMethod }),
+            ...(selectedBankId !== undefined && { selectedBankId }),
+            ...(selectedCartId && { cartId: selectedCartId }),
+            ...(totalAmount !== undefined && { totalAmount }),
+            ...(cartServiceAmount !== undefined && { cartServiceAmount }),
+            ...(foodAmount !== undefined && { foodAmount }),
+            ...(servicesAmount !== undefined && { servicesAmount }),
+            ...(shippingAmount !== undefined && { shippingAmount }),
+            ...(deliveryMethod && { deliveryMethod }),
+            updatedAt: new Date()
           }
-        },
-        cart: {
-          select: {
-            id: true,
-            name: true,
-            location: true
+        })
+
+        // Update booking dates if provided
+        if (selectedDates && Array.isArray(selectedDates)) {
+          // Delete old dates
+          await (tx as any).bookingDate.deleteMany({
+            where: { bookingId: id }
+          })
+          
+          // Create new dates
+          if (selectedDates.length > 0) {
+            await (tx as any).bookingDate.createMany({
+              data: selectedDates.map((date: any) => ({
+                bookingId: id,
+                date: new Date(date.date),
+                startTime: date.startTime,
+                endTime: date.endTime,
+                totalHours: date.totalHours,
+                cartCost: date.cartCost,
+                isAvailable: true
+              }))
+            })
           }
+        }
+
+        // Update booking items if provided
+        if (selectedItems && Array.isArray(selectedItems)) {
+          // Delete old items
+          await (tx as any).bookingItem.deleteMany({
+            where: { bookingId: id }
+          })
+          
+          // Create new items
+          if (selectedItems.length > 0) {
+            await (tx as any).bookingItem.createMany({
+              data: selectedItems.map((item: any) => ({
+                bookingId: id,
+                foodItemId: item.id,
+                quantity: item.quantity,
+                price: item.price
+              }))
+            })
+          }
+        }
+
+        // Update booking services if provided
+        if (selectedServices && Array.isArray(selectedServices)) {
+          // Delete old services
+          await (tx as any).bookingService.deleteMany({
+            where: { bookingId: id }
+          })
+          
+          // Create new services
+          if (selectedServices.length > 0) {
+            await (tx as any).bookingService.createMany({
+              data: selectedServices.map((service: any) => ({
+                bookingId: id,
+                serviceId: service.id,
+                quantity: service.quantity,
+                pricePerHour: service.pricePerHour,
+                hours: service.hours
+              }))
+            })
+          }
+        }
+
+        return booking
+      })
+
+      return NextResponse.json({
+        success: true,
+        booking: updatedBooking,
+        message: 'Booking updated successfully'
+      })
+    } else {
+      // Simple status/notes update
+      const { status, paymentStatus, specialNotes } = body
+
+      const updatedBooking = await prisma.booking.update({
+        where: { id },
+        data: {
+          ...(status && { status }),
+          ...(paymentStatus && { paymentStatus }),
+          ...(specialNotes !== undefined && { specialNotes }),
+          updatedAt: new Date()
         },
-        bookingItems: {
-          include: {
-            foodItem: {
-              select: {
-                id: true,
-                name: true,
-                category: true
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true
+            }
+          },
+          cart: {
+            select: {
+              id: true,
+              name: true,
+              location: true
+            }
+          },
+          bookingItems: {
+            include: {
+              foodItem: {
+                select: {
+                  id: true,
+                  name: true,
+                  category: true
+                }
               }
             }
           }
         }
-      }
-    })
+      })
 
-    // TODO: Send notification email on status change
-
-    // Send status update email to customer
-    try {
-      if (status && updatedBooking.customerEmail) {
-        // Prepare email data
-        const emailData: BookingEmailData = {
-          id: updatedBooking.id,
-          customerFirstName: updatedBooking.customerFirstName,
-          customerLastName: updatedBooking.customerLastName,
-          customerEmail: updatedBooking.customerEmail,
-          customerPhone: updatedBooking.customerPhone,
-          customerAddress: updatedBooking.customerAddress,
-          customerCity: updatedBooking.customerCity,
-          customerState: updatedBooking.customerState,
-          customerZip: updatedBooking.customerZip,
-          customerCountry: updatedBooking.customerCountry,
-          eventType: updatedBooking.eventType || 'Unknown Event',
-          guestCount: updatedBooking.guestCount || 0,
-          specialNotes: updatedBooking.specialNotes || '',
-          totalAmount: updatedBooking.totalAmount || 0,
-          paymentMethod: updatedBooking.paymentMethod || 'unknown',
-          status: updatedBooking.status || 'PENDING',
-          paymentStatus: updatedBooking.paymentStatus || 'PENDING',
-          createdAt: updatedBooking.createdAt.toISOString(),
-          cartName: updatedBooking.cart?.name || 'Unknown Cart',
-          cartLocation: updatedBooking.cart?.location || 'Unknown Location',
-          selectedDates: [], // Will be populated if needed
-          selectedItems: updatedBooking.bookingItems?.map(item => ({
-            name: item.foodItem?.name || 'Unknown Item',
-            quantity: item.quantity,
-            price: item.price
-          })),
-          selectedServices: [],
-          shippingAmount: 0,
-          couponCode: undefined,
-          discountAmount: 0
-        }
-
-        // Determine customer language preference
-        const customerLanguage = getCustomerLanguage(updatedBooking.customerCountry)
-
-        // Send status update email
-        const emailResult = await sendBookingStatusUpdateEmail(
-          emailData,
-          status,
-          customerLanguage
-        )
-
-        if (emailResult.success) {
-          console.log(`✅ Status update email sent to ${updatedBooking.customerEmail}`)
-        } else {
-          console.error(`❌ Failed to send status update email: ${emailResult.error}`)
-        }
-      }
-    } catch (emailError) {
-      console.error('❌ Status update email sending failed:', emailError)
-      // Don't fail the status update if email fails
+      return NextResponse.json({
+        success: true,
+        booking: updatedBooking,
+        message: 'Booking updated successfully'
+      })
     }
-
-    return NextResponse.json(updatedBooking)
   } catch (error) {
     console.error('Error updating booking:', error)
     return NextResponse.json(
@@ -183,34 +294,67 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
   }
 }
 
-// DELETE /api/bookings/[id] - Cancel booking
+// DELETE /api/bookings/[id] - Permanently delete booking (admin only)
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params
+    const { searchParams } = new URL(request.url)
+    const permanentDelete = searchParams.get('permanent') === 'true'
 
     // TODO: Add authentication and authorization checks
-    // TODO: Check cancellation policy
 
-    const updatedBooking = await prisma.booking.update({
-      where: {
-        id: id
-      },
-      data: {
-        status: 'CANCELLED'
-      }
-    })
+    if (permanentDelete) {
+      // Admin permanent deletion: delete from database
+      // Delete related records first (cascade)
+      await prisma.$transaction(async (tx) => {
+        // Delete booking dates
+        await (tx as any).bookingDate.deleteMany({
+          where: { bookingId: id }
+        })
 
-    // TODO: Process refund if applicable
-    // TODO: Send cancellation email
+        // Delete booking items
+        await (tx as any).bookingItem.deleteMany({
+          where: { bookingId: id }
+        })
 
-    return NextResponse.json({ 
-      message: 'Booking cancelled successfully',
-      booking: updatedBooking
-    })
+        // Delete booking services
+        await (tx as any).bookingService.deleteMany({
+          where: { bookingId: id }
+        })
+
+        // Delete payment slips
+        await (tx as any).paymentSlip.deleteMany({
+          where: { bookingId: id }
+        })
+
+        // Finally, delete the booking
+        await tx.booking.delete({
+          where: { id }
+        })
+      })
+
+      return NextResponse.json({ 
+        message: 'Booking permanently deleted',
+        deleted: true
+      })
+    } else {
+      // Soft delete: mark as cancelled
+      const updatedBooking = await prisma.booking.update({
+        where: { id },
+        data: {
+          status: 'CANCELLED'
+        }
+      })
+
+      return NextResponse.json({ 
+        message: 'Booking cancelled successfully',
+        booking: updatedBooking
+      })
+    }
   } catch (error) {
-    console.error('Error cancelling booking:', error)
+    console.error('Error deleting booking:', error)
     return NextResponse.json(
-      { error: 'Failed to cancel booking' },
+      { error: 'Failed to delete booking' },
       { status: 500 }
     )
   }

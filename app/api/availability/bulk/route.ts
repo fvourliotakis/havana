@@ -8,6 +8,7 @@ export async function GET(request: NextRequest) {
     const cartId = searchParams.get('cartId')
     const startDate = searchParams.get('startDate')
     const endDate = searchParams.get('endDate')
+    const excludeBookingId = searchParams.get('excludeBookingId') // For edit mode: exclude current booking
 
     if (!cartId || !startDate || !endDate) {
       return NextResponse.json(
@@ -38,7 +39,9 @@ export async function GET(request: NextRequest) {
           cartId: cartId,
           status: {
             in: ['PENDING', 'CONFIRMED']
-          }
+          },
+          // Exclude current booking in edit mode
+          ...(excludeBookingId && { id: { not: excludeBookingId } })
         }
       },
       select: {

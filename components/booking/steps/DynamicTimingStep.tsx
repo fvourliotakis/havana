@@ -14,9 +14,11 @@ interface DynamicTimingStepProps {
   updateFormData: (data: Partial<BookingFormData>) => void
   onNext: () => void
   onPrevious: () => void
+  isEditMode?: boolean
+  bookingId?: string
 }
 
-export default function DynamicTimingStep({ formData, updateFormData, onNext, onPrevious }: DynamicTimingStepProps) {
+export default function DynamicTimingStep({ formData, updateFormData, onNext, onPrevious, isEditMode = false, bookingId }: DynamicTimingStepProps) {
   const { t, language } = useI18n()
   
   // Unified state - no tabs needed
@@ -94,7 +96,8 @@ export default function DynamicTimingStep({ formData, updateFormData, onNext, on
   } = useGetBulkAvailabilityQuery({
     cartId: formData.selectedCartId!,
     startDate,
-    endDate
+    endDate,
+    excludeBookingId: bookingId // Exclude current booking in edit mode
   }, {
     skip: !formData.selectedCartId,
     // Refetch when month changes (date range changes)
@@ -610,6 +613,15 @@ export default function DynamicTimingStep({ formData, updateFormData, onNext, on
 
   return (
     <div className="space-y-[3vh] lg:space-y-[1.5vw]">
+      {/* Edit Mode Banner */}
+      {/* {isEditMode && (
+        <div className="bg-yellow-600/20 border border-yellow-600/40 rounded-lg p-[2vh] lg:p-[1vw] text-center">
+          <p className="text-yellow-400 font-semibold text-[1.8vh] lg:text-[0.9vw]">
+            ✏️ EDIT MODE - Modifying existing booking dates
+          </p>
+        </div>
+      )} */}
+
       {/* Header */}
       <div className="text-center">
         <h2 className="text-[3.5vh] lg:text-[1.4vw] font-bold text-white mb-[1vh] lg:mb-[0.3vw]">
