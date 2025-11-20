@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { BookingFormData, FoodCart } from '@/types/booking'
 import Button from '@/components/ui/Button'
 import { clsx } from 'clsx'
@@ -28,6 +28,13 @@ const HAVANA_VAN_IMAGES = [
 export default function CartSelectionStep({ formData, updateFormData, onNext }: CartSelectionStepProps) {
   const [selectedCartId, setSelectedCartId] = useState(formData.selectedCartId || '')
   const { t } = useI18n()
+
+  // Sync local state with formData changes (for edit mode)
+  useEffect(() => {
+    if (formData.selectedCartId) {
+      setSelectedCartId(formData.selectedCartId)
+    }
+  }, [formData.selectedCartId])
 
   // RTK Query hook
   const {

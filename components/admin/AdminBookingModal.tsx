@@ -9,7 +9,7 @@ import { I18nProvider } from '@/lib/i18n/context'
 import CartSelectionStep from '../booking/steps/CartSelectionStep'
 import DynamicTimingStep from '../booking/steps/DynamicTimingStep'
 import CustomerInfoStep from '../booking/steps/CustomerInfoStep'
-import { useCreateBookingMutation } from '@/lib/api/bookingsApi'
+import { useCreateBookingMutation, useUpdateBookingMutation } from '@/lib/api/bookingsApi'
 import { clsx } from 'clsx'
 
 interface AdminBookingModalProps {
@@ -45,13 +45,16 @@ function AdminBookingModalContent({ isOpen, onClose, onSuccess, bookingToEdit }:
   })
 
   const [createBooking, { isLoading: isCreating }] = useCreateBookingMutation()
-  const [isUpdating, setIsUpdating] = useState(false)
+  const [updateBooking, { isLoading: isUpdating }] = useUpdateBookingMutation()
   const isLoading = isCreating || isUpdating
+  const [originalPaymentStatus, setOriginalPaymentStatus] = useState<string>('')
+  const [isFetchingData, setIsFetchingData] = useState(false)
 
-  // Fetch booking dates for editing (date-only edit mode)
+  // Fetch complete booking data for editing (full edit mode)
   useEffect(() => {
     if (bookingToEdit && isOpen) {
-      // Fetch complete booking data to get dates and cart info
+      setIsFetchingData(true)
+      // Fetch complete booking data
       fetch(`/api/bookings/${bookingToEdit.id}`)
         .then(res => res.json())
         .then((fullBooking) => {
@@ -65,25 +68,71 @@ function AdminBookingModalContent({ isOpen, onClose, onSuccess, bookingToEdit }:
             isAvailable: true
           }))
 
-          // In edit mode, only need cart ID and dates
+          // Transform bookingItems
+          const transformedItems = (fullBooking.bookingItems || []).map((bi: any) => ({
+            id: bi.foodItemId,
+            name: bi.foodItem?.name || 'Unknown Item',
+            price: bi.price,
+            quantity: bi.quantity,
+            category: bi.foodItem?.category || '',
+            description: bi.foodItem?.description || ''
+          }))
+
+          // Transform bookingServices
+          const transformedServices = (fullBooking.bookingServices || []).map((bs: any) => ({
+            id: bs.serviceId,
+            name: bs.service?.name || 'Unknown Service',
+            pricePerHour: bs.pricePerHour,
+            hours: bs.hours,
+            quantity: bs.quantity,
+            category: bs.service?.category || ''
+          }))
+
+          // Pre-fill ALL form data
           setFormData({
             selectedCartId: fullBooking.cartId || fullBooking.cart?.id,
             selectedDates: transformedDates,
-            customerEmail: fullBooking.customerEmail, // Need for email notification
-            customerFirstName: fullBooking.customerFirstName,
-            customerLastName: fullBooking.customerLastName
+            selectedItems: transformedItems,
+            selectedServices: transformedServices,
+            customerFirstName: fullBooking.customerFirstName || '',
+            customerLastName: fullBooking.customerLastName || '',
+            customerEmail: fullBooking.customerEmail || '',
+            customerPhone: fullBooking.customerPhone || '',
+            customerAddress: fullBooking.customerAddress || '',
+            customerCity: fullBooking.customerCity || '',
+            customerState: fullBooking.customerState || '',
+            customerZip: fullBooking.customerZip || '',
+            customerCountry: fullBooking.customerCountry || 'Greece',
+            eventType: fullBooking.eventType || '',
+            guestCount: fullBooking.guestCount || 0,
+            specialNotes: fullBooking.specialNotes || '',
+            paymentMethod: fullBooking.paymentMethod || 'reservation',
+            selectedBankId: fullBooking.selectedBankId || undefined,
+            deliveryMethod: fullBooking.deliveryMethod || 'pickup',
+            totalAmount: fullBooking.totalAmount || 0,
+            cartServiceAmount: fullBooking.cartServiceAmount || 0,
+            foodAmount: fullBooking.foodAmount || 0,
+            servicesAmount: fullBooking.servicesAmount || 0,
+            shippingAmount: fullBooking.shippingAmount || 0
           })
           
-          // Start directly at timing step for date editing
-          setCurrentStep('timing')
+          // Store original payment status for restriction check
+          setOriginalPaymentStatus(fullBooking.paymentStatus || '')
+          
+          // Start at cart step in edit mode to allow full editing
+          setCurrentStep('cart')
+          setIsFetchingData(false)
         })
         .catch(error => {
-          console.error('Error fetching booking dates:', error)
+          console.error('Error fetching booking data:', error)
           alert('Failed to load booking data for editing')
+          setIsFetchingData(false)
         })
     } else if (!isEditMode) {
       // Reset to cart step for create mode
       setCurrentStep('cart')
+      setOriginalPaymentStatus('')
+      setIsFetchingData(false)
     }
   }, [bookingToEdit, isOpen, isEditMode])
 
@@ -99,41 +148,10 @@ function AdminBookingModalContent({ isOpen, onClose, onSuccess, bookingToEdit }:
   }
 
   const goToPreviousStep = () => {
-    // Same navigation for both create and edit mode
     if (currentStep === 'timing') setCurrentStep('cart')
     else if (currentStep === 'customer') setCurrentStep('timing')
     else if (currentStep === 'payment') setCurrentStep('customer')
     else if (currentStep === 'confirm') setCurrentStep('payment')
-  }
-
-  const handleUpdateDates = async () => {
-    try {
-      setIsUpdating(true)
-      // Edit mode: Update ONLY dates
-      const updateData = {
-        selectedDates: formData.selectedDates
-      }
-
-      // Call date-only update API
-      await fetch(`/api/bookings/${bookingToEdit.id}?datesOnly=true`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updateData)
-      }).then(res => {
-        if (!res.ok) throw new Error('Failed to update dates')
-        return res.json()
-      })
-
-      alert('Booking dates updated successfully! Customer has been notified via email.')
-      onSuccess()
-      onClose()
-    } catch (error: any) {
-      console.error('Failed to update booking dates:', error)
-      const errorMessage = error?.message || 'Unknown error'
-      alert(`Failed to update booking dates: ${errorMessage}`)
-    } finally {
-      setIsUpdating(false)
-    }
   }
 
   const handleConfirmBooking = async () => {
@@ -145,9 +163,27 @@ function AdminBookingModalContent({ isOpen, onClose, onSuccess, bookingToEdit }:
       const totalAmount = cartServiceAmount + foodAmount + servicesAmount + (formData.shippingAmount || 0)
 
       if (isEditMode && bookingToEdit) {
-        // This should not be reached in date-only edit mode
-        // But keeping as fallback
-        await handleUpdateDates()
+        // Edit mode: Update existing booking
+        const updatePayload = {
+          ...formData,
+          selectedCartId: formData.selectedCartId || '',
+          cartServiceAmount,
+          foodAmount,
+          servicesAmount,
+          totalAmount,
+          paymentMethod: formData.paymentMethod || 'reservation',
+          selectedBankId: formData.selectedBankId,
+          // Legacy fields for backward compatibility
+          bookingDate: formData.selectedDates?.[0]?.date || '',
+          startTime: formData.selectedDates?.[0]?.startTime || '',
+          endTime: formData.selectedDates?.[0]?.endTime || '',
+          totalHours: formData.selectedDates?.[0]?.totalHours || 0
+        }
+
+        await updateBooking({ id: bookingToEdit.id, data: updatePayload }).unwrap()
+        alert('Booking updated successfully! Customer has been notified via email.')
+        onSuccess()
+        onClose()
       } else {
         // Create mode: Create new booking
         const bookingPayload = {
@@ -169,6 +205,7 @@ function AdminBookingModalContent({ isOpen, onClose, onSuccess, bookingToEdit }:
         } as BookingFormData & { isAdminCreated: boolean }
 
         await createBooking(bookingPayload).unwrap()
+        alert('Booking created successfully! Customer has been notified via email.')
         onSuccess()
         
         // Reset form
@@ -192,6 +229,7 @@ function AdminBookingModalContent({ isOpen, onClose, onSuccess, bookingToEdit }:
           selectedBankId: undefined
         })
         setCurrentStep('cart')
+        onClose()
       }
     } catch (error: any) {
       console.error(`Failed to ${isEditMode ? 'update' : 'create'} booking:`, error)
@@ -245,83 +283,53 @@ function AdminBookingModalContent({ isOpen, onClose, onSuccess, bookingToEdit }:
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto px-[3vh] lg:px-[1.5vw] py-[2vh] lg:py-[1vw] custom-scrollbar">
-          <div className="animate-fadeIn">
-            {/* Edit Mode: Only show timing step for date editing */}
-            {isEditMode ? (
-              <>
-                {currentStep === 'timing' && (
-                  <>
-                    <DynamicTimingStep
-                      formData={formData}
-                      updateFormData={updateFormData}
-                      onNext={() => {}} // Disabled in edit mode
-                      onPrevious={() => {}} // Disabled in edit mode
-                      isEditMode={isEditMode}
-                      bookingId={bookingToEdit?.id}
-                    />
-                    
-                    {/* Update Dates Button */}
-                    <div className="flex justify-center gap-[2vh] lg:gap-[1vw] mt-[3vh] lg:mt-[1.5vw] pt-[2vh] lg:pt-[1vw] border-t border-slate-700">
-                      <Button
-                        onClick={onClose}
-                        variant="outline"
-                        disabled={isLoading}
-                        className="text-[1.8vh] lg:text-[0.9vw] px-[3vh] lg:px-[1.5vw] py-[1.5vh] lg:py-[0.75vw]"
-                      >
-                        Cancel
-                      </Button>
-                      <Button
-                        onClick={handleUpdateDates}
-                        disabled={isLoading || !formData.selectedDates || formData.selectedDates.length === 0}
-                        className="text-[1.8vh] lg:text-[0.9vw] px-[3vh] lg:px-[1.5vw] py-[1.5vh] lg:py-[0.75vw] bg-gradient-to-r from-teal-600 to-blue-600 hover:from-teal-700 hover:to-blue-700"
-                      >
-                        {isLoading ? 'Updating...' : 'Update Dates & Notify Customer'}
-                      </Button>
-                    </div>
-                  </>
-                )}
-              </>
-            ) : (
-              /* Create Mode: Full flow */
-              <>
-                {currentStep === 'cart' && (
-                  <CartSelectionStep
-                    formData={formData}
-                    updateFormData={updateFormData}
-                    onNext={goToNextStep}
-                  />
-                )}
+          {isFetchingData ? (
+            <div className="flex flex-col items-center justify-center h-full space-y-4">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-black"></div>
+              <p className="text-gray-600 font-medium">Loading booking data...</p>
+            </div>
+          ) : (
+            <div className="animate-fadeIn">
+              {/* Both Edit and Create Mode: Show all steps */}
+              {currentStep === 'cart' && (
+              <CartSelectionStep
+                formData={formData}
+                updateFormData={updateFormData}
+                onNext={goToNextStep}
+              />
+            )}
 
-                {currentStep === 'timing' && (
-                  <DynamicTimingStep
-                    formData={formData}
-                    updateFormData={updateFormData}
-                    onNext={goToNextStep}
-                    onPrevious={goToPreviousStep}
-                    isEditMode={false}
-                    bookingId={undefined}
-                  />
-                )}
+            {currentStep === 'timing' && (
+              <DynamicTimingStep
+                formData={formData}
+                updateFormData={updateFormData}
+                onNext={goToNextStep}
+                onPrevious={goToPreviousStep}
+                isEditMode={isEditMode}
+                bookingId={isEditMode ? bookingToEdit?.id : undefined}
+              />
+            )}
 
-                {currentStep === 'customer' && (
-                  <CustomerInfoStep
-                    formData={formData}
-                    updateFormData={updateFormData}
-                    onNext={goToNextStep}
-                    onPrevious={goToPreviousStep}
-                  />
-                )}
+            {currentStep === 'customer' && (
+              <CustomerInfoStep
+                formData={formData}
+                updateFormData={updateFormData}
+                onNext={goToNextStep}
+                onPrevious={goToPreviousStep}
+              />
+            )}
 
-                {currentStep === 'payment' && (
-                  <AdminPaymentSelection
-                    formData={formData}
-                    updateFormData={updateFormData}
-                    onNext={goToNextStep}
-                    onPrevious={goToPreviousStep}
-                  />
-                )}
+            {currentStep === 'payment' && (
+              <AdminPaymentSelection
+                formData={formData}
+                updateFormData={updateFormData}
+                onNext={goToNextStep}
+                onPrevious={goToPreviousStep}
+                isPaid={originalPaymentStatus === 'PAID'}
+              />
+            )}
 
-                {currentStep === 'confirm' && (
+            {currentStep === 'confirm' && (
               <div className="space-y-[2vh] lg:space-y-[1vw]">
                 <div className="text-center">
                   <h3 className="text-[3vh] lg:text-[1.5vw] font-bold text-white mb-[1vh] lg:mb-[0.5vw]">
@@ -384,10 +392,9 @@ function AdminBookingModalContent({ isOpen, onClose, onSuccess, bookingToEdit }:
                   </Button>
                 </div>
               </div>
-                )}
-              </>
             )}
-          </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -402,9 +409,10 @@ interface AdminPaymentSelectionProps {
   updateFormData: (data: Partial<BookingFormData>) => void
   onNext: () => void
   onPrevious: () => void
+  isPaid?: boolean // If true, payment method cannot be changed
 }
 
-function AdminPaymentSelection({ formData, updateFormData, onNext, onPrevious }: AdminPaymentSelectionProps) {
+function AdminPaymentSelection({ formData, updateFormData, onNext, onPrevious, isPaid = false }: AdminPaymentSelectionProps) {
   const [bankConfigs, setBankConfigs] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
   const selectedPaymentMethod = formData.paymentMethod || 'reservation'
@@ -459,18 +467,30 @@ function AdminPaymentSelection({ formData, updateFormData, onNext, onPrevious }:
         <p className="text-gray-400 text-[1.6vh] lg:text-[0.8vw]">
           Choose how the customer will pay for this booking
         </p>
+        {isPaid && (
+          <div className="mt-[2vh] lg:mt-[1vw] bg-yellow-500/20 border border-yellow-500 rounded-lg p-[2vh] lg:p-[1vw]">
+            <p className="text-yellow-400 text-[1.4vh] lg:text-[0.7vw] font-semibold">
+              Payment already completed. Payment method cannot be changed.
+            </p>
+            <p className="text-yellow-300 text-[1.2vh] lg:text-[0.6vw] mt-[0.5vh] lg:mt-[0.25vw]">
+              You can still update bank selection for bank transfers.
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Payment Method Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-[2vh] lg:gap-[1vw] mb-[3vh] lg:mb-[1.5vw]">
         {/* Reservation Option */}
         <button
-          onClick={() => handlePaymentMethodChange('reservation')}
+          onClick={() => !isPaid && handlePaymentMethodChange('reservation')}
+          disabled={isPaid}
           className={clsx(
             'p-[2vh] lg:p-[1vw] rounded-lg border-2 transition-all duration-300 text-center',
             selectedPaymentMethod === 'reservation'
               ? 'border-orange-500 bg-orange-500/20 text-white'
-              : 'border-slate-600 bg-slate-700 text-gray-300 hover:border-slate-500'
+              : 'border-slate-600 bg-slate-700 text-gray-300 hover:border-slate-500',
+            isPaid && 'opacity-50 cursor-not-allowed'
           )}
         >
           <BookmarkCheck className="w-[3vh] h-[3vh] lg:w-[1.5vw] lg:h-[1.5vw] mx-auto mb-[1vh] lg:mb-[0.5vw] text-orange-400" />
@@ -480,12 +500,14 @@ function AdminPaymentSelection({ formData, updateFormData, onNext, onPrevious }:
 
         {/* Bank Transfer Option */}
         <button
-          onClick={() => handlePaymentMethodChange('bank_transfer')}
+          onClick={() => !isPaid && handlePaymentMethodChange('bank_transfer')}
+          disabled={isPaid}
           className={clsx(
             'p-[2vh] lg:p-[1vw] rounded-lg border-2 transition-all duration-300 text-center',
             selectedPaymentMethod === 'bank_transfer'
               ? 'border-green-500 bg-green-500/20 text-white'
-              : 'border-slate-600 bg-slate-700 text-gray-300 hover:border-slate-500'
+              : 'border-slate-600 bg-slate-700 text-gray-300 hover:border-slate-500',
+            isPaid && 'opacity-50 cursor-not-allowed'
           )}
         >
           <Building2 className="w-[3vh] h-[3vh] lg:w-[1.5vw] lg:h-[1.5vw] mx-auto mb-[1vh] lg:mb-[0.5vw] text-green-400" />
@@ -495,12 +517,14 @@ function AdminPaymentSelection({ formData, updateFormData, onNext, onPrevious }:
 
         {/* PayPal Option */}
         <button
-          onClick={() => handlePaymentMethodChange('paypal')}
+          onClick={() => !isPaid && handlePaymentMethodChange('paypal')}
+          disabled={isPaid}
           className={clsx(
             'p-[2vh] lg:p-[1vw] rounded-lg border-2 transition-all duration-300 text-center',
             selectedPaymentMethod === 'paypal'
               ? 'border-blue-500 bg-blue-500/20 text-white'
-              : 'border-slate-600 bg-slate-700 text-gray-300 hover:border-slate-500'
+              : 'border-slate-600 bg-slate-700 text-gray-300 hover:border-slate-500',
+            isPaid && 'opacity-50 cursor-not-allowed'
           )}
         >
           <CreditCard className="w-[3vh] h-[3vh] lg:w-[1.5vw] lg:h-[1.5vw] mx-auto mb-[1vh] lg:mb-[0.5vw] text-blue-400" />

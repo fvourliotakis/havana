@@ -33,39 +33,23 @@ export default function DynamicTimingStep({ formData, updateFormData, onNext, on
 
   // Initialize from existing data if available (only on mount and when coming from other steps)
   useEffect(() => {
-    // Only initialize if we have no local state yet
-    if (selectedDates.length === 0) {
-      if (formData.selectedDates && formData.selectedDates.length > 0) {
+    // Only sync if we have formData dates and local state is different
+    if (formData.selectedDates && formData.selectedDates.length > 0) {
+      const formDataJson = JSON.stringify(formData.selectedDates)
+      const localJson = JSON.stringify(selectedDates)
+      
+      // Only update if actually different to prevent infinite loops
+      if (formDataJson !== localJson) {
         setSelectedDates(formData.selectedDates)
         // If single date, populate time fields for editing
         if (formData.selectedDates.length === 1) {
           const firstDate = formData.selectedDates[0]
-          setStartTime(firstDate.startTime || '10:00') // Default fallback
-          setEndTime(firstDate.endTime || '18:00') // Default fallback
+          setStartTime(firstDate.startTime || '10:00')
+          setEndTime(firstDate.endTime || '18:00')
         }
-      } else if (formData.bookingDate && formData.startTime && formData.endTime) {
-        // Legacy single date format
-        const legacyDate: BookingDate = {
-          date: formData.bookingDate,
-          startTime: formData.startTime,
-          endTime: formData.endTime,
-          totalHours: formData.totalHours || calculateTotalHours(formData.startTime, formData.endTime),
-          cartCost: 0,
-          isAvailable: true
-        }
-        const legacyDates = [legacyDate]
-        setSelectedDates(legacyDates)
-        setStartTime(formData.startTime)
-        setEndTime(formData.endTime)
-        
-        // Ensure OrderSummary stays synced with legacy data
-        updateFormData({
-          selectedDates: legacyDates,
-          cartServiceAmount: legacyDate.cartCost
-        })
       }
     }
-  }, [selectedDates.length, formData.bookingDate, formData.startTime, formData.endTime]) // Only runs when selectedDates.length changes to 0 or from 0
+  }, [formData.selectedDates]) // Only listen to formData.selectedDates
 
   // Fetch cart data for pricing
   const {
@@ -893,45 +877,43 @@ export default function DynamicTimingStep({ formData, updateFormData, onNext, on
         </div>
       </div>
 
-      {/* Continue Button - HIDDEN in edit mode */}
-      {!isEditMode && (
-        <div className="flex justify-between pt-[2vh] lg:pt-[1vw]">
-          <Button
-            onClick={onPrevious}
-            variant="outline"
-            size="sm"
-            className="px-[2vh] lg:px-[2vw] py-[0vh] lg:py-[0.6vw] text-[1.6vh] lg:text-[0.9vw] font-semibold"
-          >
-            {t('previous')}
-          </Button>
+      {/* Continue Button */}
+      <div className="flex justify-between pt-[2vh] lg:pt-[1vw]">
+        <Button
+          onClick={onPrevious}
+          variant="outline"
+          size="sm"
+          className="px-[2vh] lg:px-[2vw] py-[0vh] lg:py-[0.6vw] text-[1.6vh] lg:text-[0.9vw] font-semibold"
+        >
+          {t('previous')}
+        </Button>
 
-          <div className="text-center">
-          <Button
-            onClick={handleNext}
-              disabled={!isValid}
-            size="sm"
-            className="px-[2vh] lg:px-[2vw] py-[1.2vh] lg:py-[0.6vw] text-[1.4vh] lg:text-[0.9vw] font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-              {selectedDates.length === 0 
-                ? t('continue')
+        <div className="text-center">
+        <Button
+          onClick={handleNext}
+            disabled={!isValid}
+          size="sm"
+          className="px-[2vh] lg:px-[2vw] py-[1.2vh] lg:py-[0.6vw] text-[1.4vh] lg:text-[0.9vw] font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+            {selectedDates.length === 0 
+              ? t('continue')
+              : isSingleDay 
+              ? `${t('continue')} (1 ${t('day')})`
+              : `${t('continue')} (${selectedDates.length} ${t('days')}, 24h ${t('each')})`
+            }
+        </Button>
+          {!isValid && (
+            <p className="text-red-400 text-[1vh] lg:text-[0.5vw] mt-[0.5vh] lg:mt-[0.25vw]">
+              {selectedDates.length === 0
+                ? t('please_select_at_least_one_date')
                 : isSingleDay 
-                ? `${t('continue')} (1 ${t('day')})`
-                : `${t('continue')} (${selectedDates.length} ${t('days')}, 24h ${t('each')})`
+                ? t('please_set_start_end_times')
+                : t('multi_day_booking_ready_24h')
               }
-          </Button>
-            {!isValid && (
-              <p className="text-red-400 text-[1vh] lg:text-[0.5vw] mt-[0.5vh] lg:mt-[0.25vw]">
-                {selectedDates.length === 0
-                  ? t('please_select_at_least_one_date')
-                  : isSingleDay 
-                  ? t('please_set_start_end_times')
-                  : t('multi_day_booking_ready_24h')
-                }
-              </p>
-            )}
-          </div>
+            </p>
+          )}
         </div>
-      )}
+      </div>
     </div>
   )
 }

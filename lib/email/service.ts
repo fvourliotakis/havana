@@ -184,6 +184,51 @@ export class EmailService {
     })
   }
 
+  /**
+   * Send booking updated notification email to customer with detailed changes
+   */
+  async sendBookingUpdatedEmail(
+    customerEmail: string,
+    data: {
+      customerFirstName: string
+      customerLastName: string
+      bookingId: string
+      changes: {
+        cart?: { old: string; new: string }
+        dates?: {
+          old: Array<{ date: Date | string; startTime: string; endTime: string }>
+          new: Array<{ date: Date | string; startTime: string; endTime: string }>
+        }
+        customerInfo?: Array<{ field: string; label: string; old: string; new: string }>
+        items?: {
+          added: Array<{ name: string; quantity: number; price: number }>
+          removed: Array<{ name: string; quantity: number; price: number }>
+          changed: Array<{ name: string; oldQuantity: number; newQuantity: number; price: number }>
+        }
+        services?: {
+          added: Array<{ name: string; hours: number; pricePerHour: number }>
+          removed: Array<{ name: string; hours: number; pricePerHour: number }>
+          changed: Array<{ name: string; oldHours: number; newHours: number; pricePerHour: number }>
+        }
+        totalAmount?: { old: number; new: number }
+      }
+    },
+    language: 'el' | 'en' = 'el'
+  ): Promise<EmailResult> {
+    const subject = language === 'el'
+      ? 'Η Κράτησή Σας Ενημερώθηκε - Havana Food Cart'
+      : 'Your Booking Has Been Updated - Havana Food Cart'
+
+    const templateRenderer = new EmailTemplateRenderer(language)
+    const html = templateRenderer.renderBookingUpdatedTemplate(data)
+
+    return this.sendEmail({
+      to: customerEmail,
+      subject,
+      html
+    })
+  }
+
 }
 
 // Singleton instance

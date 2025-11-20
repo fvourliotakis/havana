@@ -1389,4 +1389,398 @@ ${t('email_footer')}
 </html>
     `
   }
+
+  /**
+   * Render booking updated notification template
+   * This template shows detailed changes made to a booking
+   */
+  renderBookingUpdatedTemplate(data: {
+    customerFirstName: string
+    customerLastName: string
+    bookingId: string
+    changes: {
+      cart?: { old: string; new: string }
+      dates?: {
+        old: Array<{ date: Date | string; startTime: string; endTime: string }>
+        new: Array<{ date: Date | string; startTime: string; endTime: string }>
+      }
+      customerInfo?: Array<{ field: string; label: string; old: string; new: string }>
+      items?: {
+        added: Array<{ name: string; quantity: number; price: number }>
+        removed: Array<{ name: string; quantity: number; price: number }>
+        changed: Array<{ name: string; oldQuantity: number; newQuantity: number; price: number }>
+      }
+      services?: {
+        added: Array<{ name: string; hours: number; pricePerHour: number }>
+        removed: Array<{ name: string; hours: number; pricePerHour: number }>
+        changed: Array<{ name: string; oldHours: number; newHours: number; pricePerHour: number }>
+      }
+      totalAmount?: { old: number; new: number }
+    }
+  }): string {
+    const t = this.t.bind(this)
+    const format = this.format.bind(this)
+
+    const hasChanges = 
+      data.changes.cart || 
+      data.changes.dates || 
+      (data.changes.customerInfo && data.changes.customerInfo.length > 0) ||
+      (data.changes.items && (data.changes.items.added.length > 0 || data.changes.items.removed.length > 0 || data.changes.items.changed.length > 0)) ||
+      (data.changes.services && (data.changes.services.added.length > 0 || data.changes.services.removed.length > 0 || data.changes.services.changed.length > 0)) ||
+      data.changes.totalAmount
+
+    return `
+<!DOCTYPE html>
+<html lang="${this.language}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${t('booking_updated_title')}</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .header {
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            color: white;
+            padding: 30px 20px;
+            text-align: center;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 28px;
+            font-weight: bold;
+        }
+        .header p {
+            margin: 10px 0 0 0;
+            opacity: 0.9;
+            font-size: 16px;
+        }
+        .content {
+            padding: 30px 20px;
+        }
+        .greeting {
+            font-size: 18px;
+            margin-bottom: 20px;
+            color: #1e293b;
+        }
+        .section {
+            margin-bottom: 25px;
+            padding: 20px;
+            background-color: #f8fafc;
+            border-radius: 6px;
+            border-left: 4px solid #0ea5e9;
+        }
+        .section h2 {
+            margin: 0 0 15px 0;
+            color: #1e293b;
+            font-size: 20px;
+            font-weight: 600;
+        }
+        .section h3 {
+            margin: 15px 0 10px 0;
+            color: #475569;
+            font-size: 16px;
+            font-weight: 600;
+        }
+        .change-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            padding: 8px 0;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        .change-row:last-child {
+            border-bottom: none;
+        }
+        .change-label {
+            font-weight: 600;
+            color: #475569;
+        }
+        .change-value {
+            color: #1e293b;
+            text-align: right;
+        }
+        .change-arrow {
+            color: #0ea5e9;
+            margin: 0 8px;
+            font-weight: bold;
+        }
+        .old-value {
+            color: #dc2626;
+            text-decoration: line-through;
+        }
+        .new-value {
+            color: #059669;
+            font-weight: 600;
+        }
+        .alert-box {
+            background-color: #dbeafe;
+            border: 1px solid #3b82f6;
+            border-radius: 6px;
+            padding: 15px;
+            margin: 20px 0;
+        }
+        .alert-box p {
+            margin: 0;
+            color: #1e40af;
+            font-size: 14px;
+        }
+        .item-list {
+            margin: 10px 0;
+        }
+        .item-entry {
+            padding: 8px;
+            margin: 5px 0;
+            background-color: #fff;
+            border-radius: 4px;
+            border-left: 3px solid #0ea5e9;
+        }
+        .item-entry.added {
+            border-left-color: #059669;
+            background-color: #ecfdf5;
+        }
+        .item-entry.removed {
+            border-left-color: #dc2626;
+            background-color: #fef2f2;
+        }
+        .footer {
+            background-color: #1e293b;
+            color: white;
+            padding: 20px;
+            text-align: center;
+            font-size: 14px;
+        }
+        .footer p {
+            margin: 5px 0;
+        }
+        @media (max-width: 600px) {
+            .container {
+                margin: 0;
+                border-radius: 0;
+            }
+            .content {
+                padding: 20px 15px;
+            }
+            .change-row {
+                flex-direction: column;
+            }
+            .change-value {
+                text-align: left;
+                margin-top: 5px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>${t('booking_updated_title')}</h1>
+            <p style="color: white; opacity: 0.9; margin: 10px 0 0 0;">Havana Van Booking System</p>
+        </div>
+
+        <div class="content">
+            <div class="greeting">
+                ${format(t('booking_confirmation_greeting'), {
+                  firstName: data.customerFirstName,
+                  lastName: data.customerLastName
+                })}
+            </div>
+
+            <p style="font-size: 16px; color: #475569; margin-bottom: 25px;">
+                ${t('booking_updated_message')}
+            </p>
+
+            <div class="alert-box">
+                <p><strong>${t('booking_confirmation_number')}: #${data.bookingId}</strong></p>
+            </div>
+
+            ${!hasChanges ? `
+                <div class="section">
+                    <h2>${t('no_changes')}</h2>
+                </div>
+            ` : ''}
+
+            <!-- Cart Change -->
+            ${data.changes.cart ? `
+                <div class="section">
+                    <h2>${t('cart_changed')}</h2>
+                    <div class="change-row">
+                        <span class="change-label">${t('previous_value')}:</span>
+                        <span class="change-value old-value">${data.changes.cart.old}</span>
+                    </div>
+                    <div class="change-row">
+                        <span class="change-label">${t('new_value')}:</span>
+                        <span class="change-value new-value">${data.changes.cart.new}</span>
+                    </div>
+                </div>
+            ` : ''}
+
+            <!-- Dates Change -->
+            ${data.changes.dates ? `
+                <div class="section">
+                    <h2>${t('dates_changed')}</h2>
+                    
+                    <h3>${t('previous_dates')}</h3>
+                    ${data.changes.dates.old.map((date: any) => `
+                        <div class="change-row">
+                            <span class="change-label">${this.formatDate(date.date)}</span>
+                            <span class="change-value old-value">${date.startTime} - ${date.endTime}</span>
+                        </div>
+                    `).join('')}
+                    
+                    <h3>${t('new_dates')}</h3>
+                    ${data.changes.dates.new.map((date: any) => `
+                        <div class="change-row">
+                            <span class="change-label">${this.formatDate(date.date)}</span>
+                            <span class="change-value new-value">${date.startTime} - ${date.endTime}</span>
+                        </div>
+                    `).join('')}
+                </div>
+            ` : ''}
+
+            <!-- Customer Info Change -->
+            ${data.changes.customerInfo && data.changes.customerInfo.length > 0 ? `
+                <div class="section">
+                    <h2>${t('customer_info_changed')}</h2>
+                    ${data.changes.customerInfo.map((info: any) => `
+                        <div class="change-row">
+                            <span class="change-label">${info.label}:</span>
+                            <span class="change-value">
+                                <span class="old-value">${info.old}</span>
+                                <span class="change-arrow">→</span>
+                                <span class="new-value">${info.new}</span>
+                            </span>
+                        </div>
+                    `).join('')}
+                </div>
+            ` : ''}
+
+            <!-- Items Change -->
+            ${data.changes.items && (data.changes.items.added.length > 0 || data.changes.items.removed.length > 0 || data.changes.items.changed.length > 0) ? `
+                <div class="section">
+                    <h2>${t('items_changed')}</h2>
+                    
+                    ${data.changes.items.added.length > 0 ? `
+                        <h3>${t('items_added')}</h3>
+                        <div class="item-list">
+                            ${data.changes.items.added.map((item: any) => `
+                                <div class="item-entry added">
+                                    <strong>${item.name}</strong> - ${t('booking_confirmation_guests')}: ${item.quantity} × €${item.price.toFixed(2)}
+                                </div>
+                            `).join('')}
+                        </div>
+                    ` : ''}
+                    
+                    ${data.changes.items.removed.length > 0 ? `
+                        <h3>${t('items_removed')}</h3>
+                        <div class="item-list">
+                            ${data.changes.items.removed.map((item: any) => `
+                                <div class="item-entry removed">
+                                    <strong>${item.name}</strong> - ${t('booking_confirmation_guests')}: ${item.quantity} × €${item.price.toFixed(2)}
+                                </div>
+                            `).join('')}
+                        </div>
+                    ` : ''}
+                    
+                    ${data.changes.items.changed.length > 0 ? `
+                        <h3>${t('quantities_changed')}</h3>
+                        <div class="item-list">
+                            ${data.changes.items.changed.map((item: any) => `
+                                <div class="item-entry">
+                                    <strong>${item.name}</strong><br>
+                                    ${t('booking_confirmation_guests')}: <span class="old-value">${item.oldQuantity}</span> 
+                                    <span class="change-arrow">→</span> 
+                                    <span class="new-value">${item.newQuantity}</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    ` : ''}
+                </div>
+            ` : ''}
+
+            <!-- Services Change -->
+            ${data.changes.services && (data.changes.services.added.length > 0 || data.changes.services.removed.length > 0 || data.changes.services.changed.length > 0) ? `
+                <div class="section">
+                    <h2>${t('services_changed')}</h2>
+                    
+                    ${data.changes.services.added.length > 0 ? `
+                        <h3>${t('services_added')}</h3>
+                        <div class="item-list">
+                            ${data.changes.services.added.map((service: any) => `
+                                <div class="item-entry added">
+                                    <strong>${service.name}</strong> - ${service.hours}h × €${service.pricePerHour.toFixed(2)}/h
+                                </div>
+                            `).join('')}
+                        </div>
+                    ` : ''}
+                    
+                    ${data.changes.services.removed.length > 0 ? `
+                        <h3>${t('services_removed')}</h3>
+                        <div class="item-list">
+                            ${data.changes.services.removed.map((service: any) => `
+                                <div class="item-entry removed">
+                                    <strong>${service.name}</strong> - ${service.hours}h × €${service.pricePerHour.toFixed(2)}/h
+                                </div>
+                            `).join('')}
+                        </div>
+                    ` : ''}
+                    
+                    ${data.changes.services.changed.length > 0 ? `
+                        <h3>${t('quantities_changed')}</h3>
+                        <div class="item-list">
+                            ${data.changes.services.changed.map((service: any) => `
+                                <div class="item-entry">
+                                    <strong>${service.name}</strong><br>
+                                    Hours: <span class="old-value">${service.oldHours}h</span> 
+                                    <span class="change-arrow">→</span> 
+                                    <span class="new-value">${service.newHours}h</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    ` : ''}
+                </div>
+            ` : ''}
+
+            <!-- Total Amount Change -->
+            ${data.changes.totalAmount ? `
+                <div class="section" style="background-color: #fef3c7; border-left-color: #f59e0b;">
+                    <h2>${t('total_amount_changed')}</h2>
+                    <div class="change-row">
+                        <span class="change-label">${t('previous_value')}:</span>
+                        <span class="change-value old-value">€${data.changes.totalAmount.old.toFixed(2)}</span>
+                    </div>
+                    <div class="change-row">
+                        <span class="change-label">${t('new_value')}:</span>
+                        <span class="change-value new-value">€${data.changes.totalAmount.new.toFixed(2)}</span>
+                    </div>
+                </div>
+            ` : ''}
+        </div>
+
+        <div class="footer">
+            <p><strong>${t('booking_confirmation_footer')}</strong></p>
+            <p>${t('booking_confirmation_contact_support')}</p>
+            <p style="font-size: 12px; opacity: 0.8; margin-top: 15px;">
+                ${t('email_footer')}
+            </p>
+        </div>
+    </div>
+</body>
+</html>
+    `
+  }
 }

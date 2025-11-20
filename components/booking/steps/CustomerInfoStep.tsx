@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { BookingFormData } from '@/types/booking'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
@@ -35,6 +35,27 @@ export default function CustomerInfoStep({ formData, updateFormData, onNext, onP
   })
   
   const [errors, setErrors] = useState<Record<string, string>>({})
+
+  // Sync local state with formData changes (for edit mode)
+  useEffect(() => {
+    // Only update if formData has values (to prevent overwriting user input)
+    if (formData.customerEmail || formData.customerFirstName) {
+      setCustomerInfo({
+        customerFirstName: formData.customerFirstName || '',
+        customerLastName: formData.customerLastName || '',
+        customerEmail: formData.customerEmail || '',
+        customerPhone: formData.customerPhone || '',
+        customerAddress: formData.customerAddress || '',
+        customerCity: formData.customerCity || '',
+        customerState: formData.customerState || '',
+        customerZip: formData.customerZip || '',
+        customerCountry: formData.customerCountry || 'Greece',
+        eventType: formData.eventType || '',
+        guestCount: formData.guestCount?.toString() || '1',
+        specialNotes: formData.specialNotes || ''
+      })
+    }
+  }, [formData]) // Listen to formData object changes
 
   const eventTypeOptions = [
     { value: 'birthday', label: t('event_birthday'), description: t('event_birthday_desc'), icon: Calendar },

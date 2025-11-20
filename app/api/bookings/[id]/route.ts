@@ -8,6 +8,222 @@ interface RouteParams {
   }>
 }
 
+// Helper function to detect changes between old and new booking data
+function detectBookingChanges(
+  oldBooking: any,
+  newData: any,
+  newDates?: any[],
+  newItems?: any[],
+  newServices?: any[]
+) {
+  const changes: any = {}
+  const t = (key: string) => key // Simple translation helper
+
+  // Detect cart change
+  if (newData.selectedCartId && oldBooking.cart && newData.selectedCartId !== oldBooking.cart.id) {
+    changes.cart = {
+      old: oldBooking.cart.name || 'Unknown Cart',
+      new: 'New Cart' // We don't have the new cart name here, will need to fetch if needed
+    }
+  }
+
+  // Detect dates change
+  if (newDates && Array.isArray(newDates) && oldBooking.bookingDates) {
+    const oldDatesJson = JSON.stringify(
+      oldBooking.bookingDates.map((d: any) => ({
+        date: d.date instanceof Date ? d.date.toISOString().split('T')[0] : d.date.split('T')[0],
+        startTime: d.startTime,
+        endTime: d.endTime
+      }))
+    )
+    const newDatesJson = JSON.stringify(
+      newDates.map((d: any) => ({
+        date: d.date,
+        startTime: d.startTime,
+        endTime: d.endTime
+      }))
+    )
+    
+    if (oldDatesJson !== newDatesJson) {
+      changes.dates = {
+        old: oldBooking.bookingDates.map((d: any) => ({
+          date: d.date,
+          startTime: d.startTime,
+          endTime: d.endTime
+        })),
+        new: newDates.map((d: any) => ({
+          date: d.date,
+          startTime: d.startTime,
+          endTime: d.endTime
+        }))
+      }
+    }
+  }
+
+  // Detect customer info changes
+  const customerInfoChanges: Array<{ field: string; label: string; old: string; new: string }> = []
+  
+  if (newData.customerEmail && newData.customerEmail !== oldBooking.customerEmail) {
+    customerInfoChanges.push({
+      field: 'email',
+      label: t('field_email'),
+      old: oldBooking.customerEmail || '',
+      new: newData.customerEmail
+    })
+  }
+  
+  if (newData.customerPhone && newData.customerPhone !== oldBooking.customerPhone) {
+    customerInfoChanges.push({
+      field: 'phone',
+      label: t('field_phone'),
+      old: oldBooking.customerPhone || '',
+      new: newData.customerPhone
+    })
+  }
+  
+  if (newData.customerAddress && newData.customerAddress !== oldBooking.customerAddress) {
+    customerInfoChanges.push({
+      field: 'address',
+      label: t('field_address'),
+      old: oldBooking.customerAddress || '',
+      new: newData.customerAddress
+    })
+  }
+  
+  if (newData.customerCity && newData.customerCity !== oldBooking.customerCity) {
+    customerInfoChanges.push({
+      field: 'city',
+      label: t('field_city'),
+      old: oldBooking.customerCity || '',
+      new: newData.customerCity
+    })
+  }
+  
+  if (newData.eventType && newData.eventType !== oldBooking.eventType) {
+    customerInfoChanges.push({
+      field: 'eventType',
+      label: t('field_event_type'),
+      old: oldBooking.eventType || '',
+      new: newData.eventType
+    })
+  }
+  
+  if (newData.guestCount !== undefined && newData.guestCount !== oldBooking.guestCount) {
+    customerInfoChanges.push({
+      field: 'guestCount',
+      label: t('field_guests'),
+      old: String(oldBooking.guestCount || 0),
+      new: String(newData.guestCount)
+    })
+  }
+
+  if (customerInfoChanges.length > 0) {
+    changes.customerInfo = customerInfoChanges
+  }
+
+  // Detect items changes
+  if (newItems && Array.isArray(newItems) && oldBooking.bookingItems) {
+    const oldItemsMap = new Map(
+      oldBooking.bookingItems.map((item: any) => [item.foodItemId, item])
+    )
+    const newItemsMap = new Map(newItems.map((item: any) => [item.id, item]))
+
+    const added: any[] = []
+    const removed: any[] = []
+    const changed: any[] = []
+
+    // Find added and changed items
+    newItems.forEach((newItem: any) => {
+      const oldItem: any = oldItemsMap.get(newItem.id)
+      if (!oldItem) {
+        added.push({
+          name: newItem.name || 'Unknown Item',
+          quantity: newItem.quantity || 0,
+          price: newItem.price || 0
+        })
+      } else if ((oldItem.quantity || 0) !== (newItem.quantity || 0)) {
+        changed.push({
+          name: (oldItem.foodItem && oldItem.foodItem.name) || 'Unknown Item',
+          oldQuantity: oldItem.quantity || 0,
+          newQuantity: newItem.quantity || 0,
+          price: newItem.price || 0
+        })
+      }
+    })
+
+    // Find removed items
+    oldBooking.bookingItems.forEach((oldItem: any) => {
+      if (!newItemsMap.has(oldItem.foodItemId)) {
+        removed.push({
+          name: (oldItem.foodItem && oldItem.foodItem.name) || 'Unknown Item',
+          quantity: oldItem.quantity || 0,
+          price: oldItem.price || 0
+        })
+      }
+    })
+
+    if (added.length > 0 || removed.length > 0 || changed.length > 0) {
+      changes.items = { added, removed, changed }
+    }
+  }
+
+  // Detect services changes
+  if (newServices && Array.isArray(newServices) && oldBooking.bookingServices) {
+    const oldServicesMap = new Map(
+      oldBooking.bookingServices.map((service: any) => [service.serviceId, service])
+    )
+    const newServicesMap = new Map(newServices.map((service: any) => [service.id, service]))
+
+    const added: any[] = []
+    const removed: any[] = []
+    const changed: any[] = []
+
+    // Find added and changed services
+    newServices.forEach((newService: any) => {
+      const oldService: any = oldServicesMap.get(newService.id)
+      if (!oldService) {
+        added.push({
+          name: newService.name || 'Unknown Service',
+          hours: newService.hours || 0,
+          pricePerHour: newService.pricePerHour || 0
+        })
+      } else if ((oldService.hours || 0) !== (newService.hours || 0)) {
+        changed.push({
+          name: (oldService.service && oldService.service.name) || 'Unknown Service',
+          oldHours: oldService.hours || 0,
+          newHours: newService.hours || 0,
+          pricePerHour: newService.pricePerHour || 0
+        })
+      }
+    })
+
+    // Find removed services
+    oldBooking.bookingServices.forEach((oldService: any) => {
+      if (!newServicesMap.has(oldService.serviceId)) {
+        removed.push({
+          name: (oldService.service && oldService.service.name) || 'Unknown Service',
+          hours: oldService.hours || 0,
+          pricePerHour: oldService.pricePerHour || 0
+        })
+      }
+    })
+
+    if (added.length > 0 || removed.length > 0 || changed.length > 0) {
+      changes.services = { added, removed, changed }
+    }
+  }
+
+  // Detect total amount change
+  if (newData.totalAmount !== undefined && newData.totalAmount !== oldBooking.totalAmount) {
+    changes.totalAmount = {
+      old: oldBooking.totalAmount || 0,
+      new: newData.totalAmount
+    }
+  }
+
+  return changes
+}
+
 // GET /api/bookings/[id] - Get specific booking
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
@@ -99,103 +315,11 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     const body = await request.json()
     const { searchParams } = new URL(request.url)
     const fullEdit = searchParams.get('fullEdit') === 'true'
-    const datesOnly = searchParams.get('datesOnly') === 'true'
 
     // TODO: Add authentication and authorization checks
 
-    if (datesOnly) {
-      // Date-only edit (admin only) - only update dates and send email
-      const { selectedDates } = body
-
-      if (!selectedDates || !Array.isArray(selectedDates) || selectedDates.length === 0) {
-        return NextResponse.json(
-          { error: 'selectedDates is required and must be a non-empty array' },
-          { status: 400 }
-        )
-      }
-
-      // Fetch existing booking to get old dates for comparison
-      const existingBooking = await prisma.booking.findUnique({
-        where: { id },
-        include: {
-          bookingDates: true,
-          cart: { select: { name: true, pricePerHour: true } }
-        }
-      })
-
-      if (!existingBooking) {
-        return NextResponse.json({ error: 'Booking not found' }, { status: 404 })
-      }
-
-      // Store old dates for email
-      const oldDates = existingBooking.bookingDates?.map((bd: any) => ({
-        date: bd.date,
-        startTime: bd.startTime,
-        endTime: bd.endTime
-      })) || []
-
-      // Update dates in transaction
-      const updatedBooking = await prisma.$transaction(async (tx) => {
-        // Delete old dates
-        await (tx as any).bookingDate.deleteMany({
-          where: { bookingId: id }
-        })
-        
-        // Create new dates
-        await (tx as any).bookingDate.createMany({
-          data: selectedDates.map((date: any) => ({
-            bookingId: id,
-            date: new Date(date.date),
-            startTime: date.startTime,
-            endTime: date.endTime,
-            totalHours: date.totalHours,
-            cartCost: date.cartCost,
-            isAvailable: true
-          }))
-        })
-
-        // Recalculate cart service amount
-        const newCartServiceAmount = selectedDates.reduce((sum: number, date: any) => sum + (date.cartCost || 0), 0)
-
-        // Update booking with new totals
-        return await tx.booking.update({
-          where: { id },
-          data: {
-            cartServiceAmount: newCartServiceAmount,
-            totalAmount: newCartServiceAmount + (existingBooking.foodAmount || 0) + (existingBooking.servicesAmount || 0) + (existingBooking.shippingAmount || 0),
-            updatedAt: new Date()
-          }
-        })
-      })
-
-      // Send email notification to customer
-      try {
-        const { emailService } = await import('@/lib/email/service')
-        await emailService.sendBookingDatesUpdatedEmail(
-          existingBooking.customerEmail || '',
-          {
-            customerFirstName: existingBooking.customerFirstName || '',
-            customerLastName: existingBooking.customerLastName || '',
-            bookingId: existingBooking.id,
-            cartName: existingBooking.cart?.name || 'Food Cart',
-            oldDates,
-            newDates: selectedDates,
-            totalAmount: updatedBooking.totalAmount
-          },
-          'el' // TODO: Get language from booking or default
-        )
-      } catch (emailError) {
-        console.error('Failed to send booking dates updated email:', emailError)
-        // Don't fail the request if email fails
-      }
-
-      return NextResponse.json({
-        success: true,
-        booking: updatedBooking,
-        message: 'Booking dates updated successfully'
-      })
-    } else if (fullEdit) {
-      // Full booking edit (admin only) - includes dates, items, services
+    if (fullEdit) {
+      // Full booking edit (admin only) - includes dates, items, services, customer info
       const {
         customerFirstName,
         customerLastName,
@@ -225,7 +349,38 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
         deliveryMethod
       } = body
 
-      // Use transaction to update everything atomically
+      // Fetch existing booking with all related data for change detection
+      const oldBooking = await prisma.booking.findUnique({
+        where: { id },
+        include: {
+          cart: { select: { id: true, name: true, pricePerHour: true } },
+          bookingDates: true,
+          bookingItems: {
+            include: {
+              foodItem: { select: { id: true, name: true, price: true } }
+            }
+          },
+          bookingServices: {
+            include: {
+              service: { select: { id: true, name: true, pricePerHour: true } }
+            }
+          }
+        }
+      })
+
+      if (!oldBooking) {
+        return NextResponse.json({ error: 'Booking not found' }, { status: 404 })
+      }
+
+      // Check payment method restriction: if already PAID, cannot change payment method
+      if (oldBooking.paymentStatus === 'PAID' && paymentMethod && paymentMethod !== oldBooking.paymentMethod) {
+        return NextResponse.json(
+          { error: 'Cannot change payment method after payment is completed' },
+          { status: 400 }
+        )
+      }
+
+      // Use transaction to update everything atomically with increased timeout
       const updatedBooking = await prisma.$transaction(async (tx) => {
         // Update booking basic info
         const booking = await tx.booking.update({
@@ -323,7 +478,32 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
         }
 
         return booking
+      }, {
+        timeout: 15000 // Increase timeout to 15 seconds for complex booking updates
       })
+
+      // Detect changes and send email notification
+      try {
+        const changes = detectBookingChanges(oldBooking, body, selectedDates, selectedItems, selectedServices)
+        
+        // Only send email if there are actual changes
+        if (Object.keys(changes).length > 0) {
+          const { emailService } = await import('@/lib/email/service')
+          await emailService.sendBookingUpdatedEmail(
+            updatedBooking.customerEmail || oldBooking.customerEmail || '',
+            {
+              customerFirstName: updatedBooking.customerFirstName || oldBooking.customerFirstName || '',
+              customerLastName: updatedBooking.customerLastName || oldBooking.customerLastName || '',
+              bookingId: updatedBooking.id,
+              changes
+            },
+            'el' // TODO: Get language from booking or default
+          )
+        }
+      } catch (emailError) {
+        console.error('Failed to send booking updated email:', emailError)
+        // Don't fail the request if email fails
+      }
 
       return NextResponse.json({
         success: true,
