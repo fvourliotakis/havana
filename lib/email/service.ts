@@ -211,6 +211,17 @@ export class EmailService {
           changed: Array<{ name: string; oldHours: number; newHours: number; pricePerHour: number }>
         }
         totalAmount?: { old: number; new: number }
+        paymentMethod?: { old: string; new: string }
+      }
+      paymentMethodChanged?: boolean
+      newPaymentMethod?: string
+      bookingToken?: string
+      selectedBankId?: string
+      bankDetails?: {
+        bankName: string
+        accountHolder: string
+        iban: string
+        swiftCode: string
       }
     },
     language: 'el' | 'en' = 'el'

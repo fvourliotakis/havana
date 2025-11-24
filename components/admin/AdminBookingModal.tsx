@@ -109,6 +109,10 @@ function AdminBookingModalContent({ isOpen, onClose, onSuccess, bookingToEdit }:
             paymentMethod: fullBooking.paymentMethod || 'reservation',
             selectedBankId: fullBooking.selectedBankId || undefined,
             deliveryMethod: fullBooking.deliveryMethod || 'pickup',
+            shippingAddress: fullBooking.shippingAddress || '',
+            shippingCity: fullBooking.shippingCity || '',
+            shippingState: fullBooking.shippingState || '',
+            shippingZip: fullBooking.shippingZip || '',
             totalAmount: fullBooking.totalAmount || 0,
             cartServiceAmount: fullBooking.cartServiceAmount || 0,
             foodAmount: fullBooking.foodAmount || 0,
@@ -186,49 +190,49 @@ function AdminBookingModalContent({ isOpen, onClose, onSuccess, bookingToEdit }:
         onClose()
       } else {
         // Create mode: Create new booking
-        const bookingPayload = {
-          ...formData,
-          selectedCartId: formData.selectedCartId || '',
-          cartServiceAmount,
-          foodAmount,
-          servicesAmount,
-          totalAmount,
+      const bookingPayload = {
+        ...formData,
+        selectedCartId: formData.selectedCartId || '',
+        cartServiceAmount,
+        foodAmount,
+        servicesAmount,
+        totalAmount,
           paymentMethod: formData.paymentMethod || 'reservation',
           selectedBankId: formData.selectedBankId,
-          paymentStatus: 'PENDING',
+        paymentStatus: 'PENDING',
           isAdminCreated: true, // Flag to trigger special email
-          // Legacy fields for backward compatibility
-          bookingDate: formData.selectedDates?.[0]?.date || '',
-          startTime: formData.selectedDates?.[0]?.startTime || '',
-          endTime: formData.selectedDates?.[0]?.endTime || '',
-          totalHours: formData.selectedDates?.[0]?.totalHours || 0
+        // Legacy fields for backward compatibility
+        bookingDate: formData.selectedDates?.[0]?.date || '',
+        startTime: formData.selectedDates?.[0]?.startTime || '',
+        endTime: formData.selectedDates?.[0]?.endTime || '',
+        totalHours: formData.selectedDates?.[0]?.totalHours || 0
         } as BookingFormData & { isAdminCreated: boolean }
 
-        await createBooking(bookingPayload).unwrap()
+      await createBooking(bookingPayload).unwrap()
         alert('Booking created successfully! Customer has been notified via email.')
-        onSuccess()
-        
-        // Reset form
-        setFormData({
-          selectedItems: [],
-          selectedServices: [],
-          selectedDates: [],
-          totalAmount: 0,
-          deliveryMethod: 'pickup',
-          shippingAmount: 0,
-          customerFirstName: '',
-          customerLastName: '',
-          customerEmail: '',
-          customerPhone: '',
-          customerAddress: '',
-          customerCity: '',
-          customerState: '',
-          customerZip: '',
+      onSuccess()
+      
+      // Reset form
+      setFormData({
+        selectedItems: [],
+        selectedServices: [],
+        selectedDates: [],
+        totalAmount: 0,
+        deliveryMethod: 'pickup',
+        shippingAmount: 0,
+        customerFirstName: '',
+        customerLastName: '',
+        customerEmail: '',
+        customerPhone: '',
+        customerAddress: '',
+        customerCity: '',
+        customerState: '',
+        customerZip: '',
           customerCountry: 'Greece',
           paymentMethod: 'reservation',
           selectedBankId: undefined
-        })
-        setCurrentStep('cart')
+      })
+      setCurrentStep('cart')
         onClose()
       }
     } catch (error: any) {
@@ -289,9 +293,9 @@ function AdminBookingModalContent({ isOpen, onClose, onSuccess, bookingToEdit }:
               <p className="text-gray-600 font-medium">Loading booking data...</p>
             </div>
           ) : (
-            <div className="animate-fadeIn">
+          <div className="animate-fadeIn">
               {/* Both Edit and Create Mode: Show all steps */}
-              {currentStep === 'cart' && (
+            {currentStep === 'cart' && (
               <CartSelectionStep
                 formData={formData}
                 updateFormData={updateFormData}
@@ -393,7 +397,7 @@ function AdminBookingModalContent({ isOpen, onClose, onSuccess, bookingToEdit }:
                 </div>
               </div>
             )}
-            </div>
+          </div>
           )}
         </div>
       </div>

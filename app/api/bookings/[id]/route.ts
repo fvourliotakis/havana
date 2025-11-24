@@ -27,8 +27,8 @@ function detectBookingChanges(
     }
   }
 
-  // Detect dates change
-  if (newDates && Array.isArray(newDates) && oldBooking.bookingDates) {
+  // Detect dates change (only if newDates was actually provided in the request)
+  if (newDates !== null && newDates && Array.isArray(newDates) && oldBooking.bookingDates) {
     const oldDatesJson = JSON.stringify(
       oldBooking.bookingDates.map((d: any) => ({
         date: d.date instanceof Date ? d.date.toISOString().split('T')[0] : d.date.split('T')[0],
@@ -121,8 +121,8 @@ function detectBookingChanges(
     changes.customerInfo = customerInfoChanges
   }
 
-  // Detect items changes
-  if (newItems && Array.isArray(newItems) && oldBooking.bookingItems) {
+  // Detect items changes (only if newItems was actually provided in the request)
+  if (newItems !== null && newItems && Array.isArray(newItems) && oldBooking.bookingItems) {
     const oldItemsMap = new Map(
       oldBooking.bookingItems.map((item: any) => [item.foodItemId, item])
     )
@@ -167,8 +167,8 @@ function detectBookingChanges(
     }
   }
 
-  // Detect services changes
-  if (newServices && Array.isArray(newServices) && oldBooking.bookingServices) {
+  // Detect services changes (only if newServices was actually provided in the request)
+  if (newServices !== null && newServices && Array.isArray(newServices) && oldBooking.bookingServices) {
     const oldServicesMap = new Map(
       oldBooking.bookingServices.map((service: any) => [service.serviceId, service])
     )
@@ -218,6 +218,14 @@ function detectBookingChanges(
     changes.totalAmount = {
       old: oldBooking.totalAmount || 0,
       new: newData.totalAmount
+    }
+  }
+
+  // Detect payment method change
+  if (newData.paymentMethod && newData.paymentMethod !== oldBooking.paymentMethod) {
+    changes.paymentMethod = {
+      old: oldBooking.paymentMethod || 'unknown',
+      new: newData.paymentMethod
     }
   }
 
@@ -484,18 +492,61 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
       // Detect changes and send email notification
       try {
-        const changes = detectBookingChanges(oldBooking, body, selectedDates, selectedItems, selectedServices)
+        // Only pass dates/items/services if they were actually sent in the request
+        // This prevents false detection of "removed" items when user only updates other fields
+        const changes = detectBookingChanges(
+          oldBooking,
+          body,
+          selectedDates !== undefined ? selectedDates : null,
+          selectedItems !== undefined ? selectedItems : null,
+          selectedServices !== undefined ? selectedServices : null
+        )
         
         // Only send email if there are actual changes
         if (Object.keys(changes).length > 0) {
           const { emailService } = await import('@/lib/email/service')
+          
+          // Check if payment method changed and booking is not paid
+          const paymentMethodChanged = !!changes.paymentMethod && updatedBooking.paymentStatus !== 'PAID'
+          let bookingToken: string | undefined
+          let bankDetails: any = undefined
+
+          if (paymentMethodChanged) {
+            // Generate token for action buttons
+            const { generateBookingToken } = await import('@/lib/bookingTokens')
+            bookingToken = generateBookingToken(
+              updatedBooking.id,
+              updatedBooking.customerEmail || oldBooking.customerEmail || ''
+            )
+
+            // Fetch bank details if new payment method is bank_transfer
+            if (updatedBooking.paymentMethod === 'bank_transfer' && updatedBooking.selectedBankId) {
+              const bankConfig = await prisma.bankConfig.findUnique({
+                where: { id: updatedBooking.selectedBankId }
+              })
+              if (bankConfig) {
+                bankDetails = {
+                  bankName: bankConfig.bankName,
+                  accountHolder: bankConfig.accountHolder,
+                  iban: bankConfig.iban,
+                  swiftCode: bankConfig.swiftCode || ''
+                }
+              }
+            }
+          }
+
           await emailService.sendBookingUpdatedEmail(
             updatedBooking.customerEmail || oldBooking.customerEmail || '',
             {
               customerFirstName: updatedBooking.customerFirstName || oldBooking.customerFirstName || '',
               customerLastName: updatedBooking.customerLastName || oldBooking.customerLastName || '',
               bookingId: updatedBooking.id,
-              changes
+              changes,
+              paymentMethodChanged,
+              newPaymentMethod: paymentMethodChanged ? updatedBooking.paymentMethod || undefined : undefined,
+              bookingToken,
+              selectedBankId: updatedBooking.selectedBankId || undefined,
+              bankDetails
             },
             'el' // TODO: Get language from booking or default
           )

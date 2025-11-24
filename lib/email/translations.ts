@@ -144,6 +144,9 @@ export const emailTranslations = {
     field_city: 'Πόλη',
     field_event_type: 'Τύπος Εκδήλωσης',
     field_guests: 'Αριθμός Επισκεπτών',
+    payment_method_changed: 'Μέθοδος Πληρωμής Άλλαξε',
+    payment_method_update_notice: 'Παρακαλώ ολοκληρώστε την πληρωμή χρησιμοποιώντας το παρακάτω κουμπί',
+    pay_now_button: 'Πληρώστε Τώρα',
   },
 
   // English
@@ -291,6 +294,9 @@ export const emailTranslations = {
     field_city: 'City',
     field_event_type: 'Event Type',
     field_guests: 'Number of Guests',
+    payment_method_changed: 'Payment Method Changed',
+    payment_method_update_notice: 'Please complete payment using the button below',
+    pay_now_button: 'Pay Now',
   }
 }
 

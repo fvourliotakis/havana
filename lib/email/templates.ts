@@ -59,6 +59,92 @@ export class EmailTemplateRenderer {
     }
   }
 
+  private formatPaymentMethod(method: string): string {
+    return this.getPaymentMethodText(method)
+  }
+
+  private renderPaymentActionButtons(
+    paymentMethod: string,
+    token: string,
+    bookingId: string,
+    bankDetails?: { bankName: string; accountHolder: string; iban: string; swiftCode: string }
+  ): string {
+    const t = this.t.bind(this)
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'
+    const confirmUrl = `${baseUrl}/booking-confirm/${bookingId}?token=${token}&action=confirm`
+    const cancelUrl = `${baseUrl}/booking-confirm/${bookingId}?token=${token}&action=cancel`
+    const payUrl = `${baseUrl}/booking-confirm/${bookingId}?token=${token}&action=pay`
+
+    if (paymentMethod === 'reservation') {
+      return `
+        <h2 style="margin: 0 0 20px 0; color: #1e293b; text-align: center;">${t('booking_confirmation_next_steps')}</h2>
+        <p style="margin-bottom: 20px; text-align: center;">${t('booking_confirmation_reservation_note')}</p>
+        <div style="text-align: center;">
+          <a href="${confirmUrl}" class="cta-button green">
+            ${t('confirm_booking_button')}
+          </a>
+          <br>
+          <a href="${cancelUrl}" class="cta-button-outline red">
+            ${t('cancel_booking_button')}
+          </a>
+        </div>
+      `
+    } else if (paymentMethod === 'bank_transfer') {
+      return `
+        ${bankDetails ? `
+          <div class="bank-details-card">
+            <h3 style="color: #0f172a; margin-bottom: 15px; font-size: 18px;">${t('bank_transfer_instructions_title')}</h3>
+            <div style="display: grid; gap: 12px;">
+              <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #10b981;">
+                <strong style="color: #064e3b;">${t('bank_name')}:</strong>
+                <span style="color: #0f172a;">${bankDetails.bankName}</span>
+              </div>
+              <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #10b981;">
+                <strong style="color: #064e3b;">${t('account_holder')}:</strong>
+                <span style="color: #0f172a;">${bankDetails.accountHolder}</span>
+              </div>
+              <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #10b981;">
+                <strong style="color: #064e3b;">${t('iban')}:</strong>
+                <span style="color: #0f172a; font-family: monospace;">${bankDetails.iban}</span>
+              </div>
+              <div style="display: flex; justify-content: space-between; padding: 8px 0;">
+                <strong style="color: #064e3b;">${t('swift_code')}:</strong>
+                <span style="color: #0f172a; font-family: monospace;">${bankDetails.swiftCode}</span>
+              </div>
+            </div>
+          </div>
+        ` : ''}
+        <h2 style="margin: 0 0 20px 0; color: #1e293b; text-align: center;">${t('booking_confirmation_next_steps')}</h2>
+        <p style="margin-bottom: 20px; text-align: center;">${t('booking_confirmation_bank_note')}</p>
+        <div style="text-align: center;">
+          <a href="${payUrl}" class="cta-button green">
+            ${t('upload_payment_proof_button')}
+          </a>
+          <br>
+          <a href="${cancelUrl}" class="cta-button-outline red">
+            ${t('cancel_booking_button')}
+          </a>
+        </div>
+      `
+    } else if (paymentMethod === 'paypal') {
+      return `
+        <h2 style="margin: 0 0 20px 0; color: #1e293b; text-align: center;">${t('booking_confirmation_next_steps')}</h2>
+        <p style="margin-bottom: 20px; text-align: center;">${t('booking_confirmation_paypal_note')}</p>
+        <div style="text-align: center;">
+          <a href="${payUrl}" class="cta-button blue">
+            ${t('pay_with_paypal_button')}
+          </a>
+          <br>
+          <a href="${cancelUrl}" class="cta-button-outline red">
+            ${t('cancel_booking_button')}
+          </a>
+        </div>
+      `
+    }
+
+    return ''
+  }
+
   private getStatusText(status: string): string {
     switch (status.toLowerCase()) {
       case 'confirmed':
@@ -1416,6 +1502,17 @@ ${t('email_footer')}
         changed: Array<{ name: string; oldHours: number; newHours: number; pricePerHour: number }>
       }
       totalAmount?: { old: number; new: number }
+      paymentMethod?: { old: string; new: string }
+    }
+    paymentMethodChanged?: boolean
+    newPaymentMethod?: string
+    bookingToken?: string
+    selectedBankId?: string
+    bankDetails?: {
+      bankName: string
+      accountHolder: string
+      iban: string
+      swiftCode: string
     }
   }): string {
     const t = this.t.bind(this)
@@ -1557,6 +1654,45 @@ ${t('email_footer')}
             border-left-color: #dc2626;
             background-color: #fef2f2;
         }
+        .cta-button {
+            display: inline-block;
+            padding: 15px 30px;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: 600;
+            margin: 10px 5px;
+            font-size: 16px;
+        }
+        .cta-button.green {
+            background-color: #10b981;
+            color: white;
+        }
+        .cta-button.blue {
+            background-color: #3b82f6;
+            color: white;
+        }
+        .cta-button-outline {
+            display: inline-block;
+            padding: 15px 30px;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: 600;
+            margin: 10px 5px;
+            font-size: 16px;
+            border: 2px solid;
+            background-color: transparent;
+        }
+        .cta-button-outline.red {
+            border-color: #dc2626;
+            color: #dc2626;
+        }
+        .bank-details-card {
+            background-color: #ecfdf5;
+            border: 2px solid #10b981;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
         .footer {
             background-color: #1e293b;
             color: white;
@@ -1581,6 +1717,10 @@ ${t('email_footer')}
             .change-value {
                 text-align: left;
                 margin-top: 5px;
+            }
+            .cta-button, .cta-button-outline {
+                display: block;
+                margin: 10px 0;
             }
         }
     </style>
@@ -1607,12 +1747,6 @@ ${t('email_footer')}
             <div class="alert-box">
                 <p><strong>${t('booking_confirmation_number')}: #${data.bookingId}</strong></p>
             </div>
-
-            ${!hasChanges ? `
-                <div class="section">
-                    <h2>${t('no_changes')}</h2>
-                </div>
-            ` : ''}
 
             <!-- Cart Change -->
             ${data.changes.cart ? `
@@ -1670,11 +1804,11 @@ ${t('email_footer')}
             ` : ''}
 
             <!-- Items Change -->
-            ${data.changes.items && (data.changes.items.added.length > 0 || data.changes.items.removed.length > 0 || data.changes.items.changed.length > 0) ? `
+            ${data.changes.items && ((data.changes.items.added && data.changes.items.added.length > 0) || (data.changes.items.removed && data.changes.items.removed.length > 0) || (data.changes.items.changed && data.changes.items.changed.length > 0)) ? `
                 <div class="section">
                     <h2>${t('items_changed')}</h2>
                     
-                    ${data.changes.items.added.length > 0 ? `
+                    ${data.changes.items.added && data.changes.items.added.length > 0 ? `
                         <h3>${t('items_added')}</h3>
                         <div class="item-list">
                             ${data.changes.items.added.map((item: any) => `
@@ -1685,7 +1819,7 @@ ${t('email_footer')}
                         </div>
                     ` : ''}
                     
-                    ${data.changes.items.removed.length > 0 ? `
+                    ${data.changes.items.removed && data.changes.items.removed.length > 0 ? `
                         <h3>${t('items_removed')}</h3>
                         <div class="item-list">
                             ${data.changes.items.removed.map((item: any) => `
@@ -1696,7 +1830,7 @@ ${t('email_footer')}
                         </div>
                     ` : ''}
                     
-                    ${data.changes.items.changed.length > 0 ? `
+                    ${data.changes.items.changed && data.changes.items.changed.length > 0 ? `
                         <h3>${t('quantities_changed')}</h3>
                         <div class="item-list">
                             ${data.changes.items.changed.map((item: any) => `
@@ -1713,11 +1847,11 @@ ${t('email_footer')}
             ` : ''}
 
             <!-- Services Change -->
-            ${data.changes.services && (data.changes.services.added.length > 0 || data.changes.services.removed.length > 0 || data.changes.services.changed.length > 0) ? `
+            ${data.changes.services && ((data.changes.services.added && data.changes.services.added.length > 0) || (data.changes.services.removed && data.changes.services.removed.length > 0) || (data.changes.services.changed && data.changes.services.changed.length > 0)) ? `
                 <div class="section">
                     <h2>${t('services_changed')}</h2>
                     
-                    ${data.changes.services.added.length > 0 ? `
+                    ${data.changes.services.added && data.changes.services.added.length > 0 ? `
                         <h3>${t('services_added')}</h3>
                         <div class="item-list">
                             ${data.changes.services.added.map((service: any) => `
@@ -1728,7 +1862,7 @@ ${t('email_footer')}
                         </div>
                     ` : ''}
                     
-                    ${data.changes.services.removed.length > 0 ? `
+                    ${data.changes.services.removed && data.changes.services.removed.length > 0 ? `
                         <h3>${t('services_removed')}</h3>
                         <div class="item-list">
                             ${data.changes.services.removed.map((service: any) => `
@@ -1739,7 +1873,7 @@ ${t('email_footer')}
                         </div>
                     ` : ''}
                     
-                    ${data.changes.services.changed.length > 0 ? `
+                    ${data.changes.services.changed && data.changes.services.changed.length > 0 ? `
                         <h3>${t('quantities_changed')}</h3>
                         <div class="item-list">
                             ${data.changes.services.changed.map((service: any) => `
@@ -1767,6 +1901,31 @@ ${t('email_footer')}
                         <span class="change-label">${t('new_value')}:</span>
                         <span class="change-value new-value">€${data.changes.totalAmount.new.toFixed(2)}</span>
                     </div>
+                </div>
+            ` : ''}
+
+            <!-- Payment Method Change -->
+            ${data.changes.paymentMethod ? `
+                <div class="section" style="background-color: #dbeafe; border-left-color: #3b82f6;">
+                    <h2>${t('payment_method_changed')}</h2>
+                    <div class="change-row">
+                        <span class="change-label">${t('previous_value')}:</span>
+                        <span class="change-value old-value">${this.formatPaymentMethod(data.changes.paymentMethod.old)}</span>
+                    </div>
+                    <div class="change-row">
+                        <span class="change-label">${t('new_value')}:</span>
+                        <span class="change-value new-value">${this.formatPaymentMethod(data.changes.paymentMethod.new)}</span>
+                    </div>
+                </div>
+            ` : ''}
+
+            <!-- Action Buttons for Payment Method Change -->
+            ${data.paymentMethodChanged && data.bookingToken ? `
+                <div class="section" style="">
+                    <p style="margin-bottom: 20px; color: #047857; font-weight: 500;">
+                        ${t('payment_method_update_notice')}
+                    </p>
+                    ${this.renderPaymentActionButtons(data.newPaymentMethod || '', data.bookingToken, data.bookingId, data.bankDetails)}
                 </div>
             ` : ''}
         </div>
