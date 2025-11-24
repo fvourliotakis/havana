@@ -8,6 +8,7 @@ import { BookingFormData, BookingStep } from '@/types/booking'
 import { I18nProvider } from '@/lib/i18n/context'
 import CartSelectionStep from '../booking/steps/CartSelectionStep'
 import DynamicTimingStep from '../booking/steps/DynamicTimingStep'
+import DeliveryStep from '../booking/steps/DeliveryStep'
 import CustomerInfoStep from '../booking/steps/CustomerInfoStep'
 import { useCreateBookingMutation, useUpdateBookingMutation } from '@/lib/api/bookingsApi'
 import { clsx } from 'clsx'
@@ -19,7 +20,7 @@ interface AdminBookingModalProps {
   bookingToEdit?: any // Booking data for edit mode (date-only editing)
 }
 
-type AdminBookingStep = 'cart' | 'timing' | 'customer' | 'payment' | 'confirm'
+type AdminBookingStep = 'cart' | 'timing' | 'delivery' | 'customer' | 'payment' | 'confirm'
 
 function AdminBookingModalContent({ isOpen, onClose, onSuccess, bookingToEdit }: AdminBookingModalProps) {
   const isEditMode = !!bookingToEdit
@@ -146,14 +147,16 @@ function AdminBookingModalContent({ isOpen, onClose, onSuccess, bookingToEdit }:
 
   const goToNextStep = () => {
     if (currentStep === 'cart') setCurrentStep('timing')
-    else if (currentStep === 'timing') setCurrentStep('customer')
+    else if (currentStep === 'timing') setCurrentStep('delivery')
+    else if (currentStep === 'delivery') setCurrentStep('customer')
     else if (currentStep === 'customer') setCurrentStep('payment')
     else if (currentStep === 'payment') setCurrentStep('confirm')
   }
 
   const goToPreviousStep = () => {
     if (currentStep === 'timing') setCurrentStep('cart')
-    else if (currentStep === 'customer') setCurrentStep('timing')
+    else if (currentStep === 'delivery') setCurrentStep('timing')
+    else if (currentStep === 'customer') setCurrentStep('delivery')
     else if (currentStep === 'payment') setCurrentStep('customer')
     else if (currentStep === 'confirm') setCurrentStep('payment')
   }
@@ -314,6 +317,15 @@ function AdminBookingModalContent({ isOpen, onClose, onSuccess, bookingToEdit }:
               />
             )}
 
+            {currentStep === 'delivery' && (
+              <DeliveryStep
+                formData={formData}
+                updateFormData={updateFormData}
+                onNext={goToNextStep}
+                onPrevious={goToPreviousStep}
+              />
+            )}
+
             {currentStep === 'customer' && (
               <CustomerInfoStep
                 formData={formData}
@@ -367,11 +379,22 @@ function AdminBookingModalContent({ isOpen, onClose, onSuccess, bookingToEdit }:
                       <p className="text-white font-medium">{formData.selectedDates?.length || 0} day(s)</p>
                     </div>
                     <div>
+                      <span className="text-gray-400">Delivery Method:</span>
+                      <p className="text-white font-medium capitalize">{formData.deliveryMethod || 'pickup'}</p>
+                    </div>
+                    {formData.deliveryMethod === 'shipping' && formData.shippingAmount && formData.shippingAmount > 0 && (
+                      <div>
+                        <span className="text-gray-400">Shipping Cost:</span>
+                        <p className="text-white font-medium">€{formData.shippingAmount.toFixed(2)}</p>
+                      </div>
+                    )}
+                    <div className="col-span-2">
                       <span className="text-gray-400">Total Cost:</span>
                       <p className="text-teal-400 font-bold text-[1.8vh] lg:text-[0.9vw]">
                         €{((formData.selectedDates?.reduce((sum, date) => sum + date.cartCost, 0) || 0) + 
                            (formData.selectedItems?.reduce((sum, item) => sum + (item.price * item.quantity), 0) || 0) +
-                           (formData.selectedServices?.reduce((sum, service) => sum + ((service.pricePerHour || 0) * (service.hours || 0) * service.quantity), 0) || 0)).toFixed(2)}
+                           (formData.selectedServices?.reduce((sum, service) => sum + ((service.pricePerHour || 0) * (service.hours || 0) * service.quantity), 0) || 0) +
+                           (formData.shippingAmount || 0)).toFixed(2)}
                       </p>
                     </div>
                   </div>

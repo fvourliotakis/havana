@@ -450,7 +450,7 @@ export default function BookingsPage() {
                                 (booking as any).paymentStatus === 'PENDING' ? 'bg-yellow-500/20 text-yellow-400' :
                                 (booking as any).paymentStatus === 'FAILED' ? 'bg-red-500/20 text-red-400' : 'bg-gray-500/20 text-gray-400'
                               }`}>
-                                {(booking as any).paymentStatus || 'Unknown'}
+                                {((booking as any).paymentStatus || 'PENDING').toUpperCase()}
                               </span>
                             </div>
                           </div>

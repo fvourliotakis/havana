@@ -354,7 +354,11 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
         foodAmount,
         servicesAmount,
         shippingAmount,
-        deliveryMethod
+        deliveryMethod,
+        shippingAddress,
+        shippingCity,
+        shippingState,
+        shippingZip
       } = body
 
       // Fetch existing booking with all related data for change detection
@@ -417,6 +421,10 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
             ...(servicesAmount !== undefined && { servicesAmount }),
             ...(shippingAmount !== undefined && { shippingAmount }),
             ...(deliveryMethod && { deliveryMethod }),
+            ...(shippingAddress !== undefined && { shippingAddress }),
+            ...(shippingCity !== undefined && { shippingCity }),
+            ...(shippingState !== undefined && { shippingState }),
+            ...(shippingZip !== undefined && { shippingZip }),
             updatedAt: new Date()
           }
         })
