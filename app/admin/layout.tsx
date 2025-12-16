@@ -158,9 +158,9 @@ function AdminLayoutInner({ children }: AdminLayoutProps) {
             <div className="flex items-center justify-between h-20 px-6 border-b border-slate-700">
               <div className="flex items-center space-x-3">
                 <img 
-                  src="https://havana.gr/wp-content/uploads/2025/05/cropped-Logo.png" 
+                  src="/logo.png" 
                   alt="Havana Logo" 
-                  className="h-10 w-10 object-contain"
+                  className="h-12 w-12 object-contain"
                 />
                 <div>
                   <h1 className="text-xl font-bold text-white">

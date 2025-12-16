@@ -55,7 +55,7 @@ export default function AdminLogin() {
         <div className="text-center mb-8">
           <div className="flex justify-center mb-6">
             <img 
-              src="https://havana.gr/wp-content/uploads/2025/05/cropped-Logo.png" 
+              src="/logo.png" 
               alt="Havana Logo" 
               className="h-20 w-20 object-contain"
             />

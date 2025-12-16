@@ -163,9 +163,9 @@ function BookingFormContent() {
       <div className="text-center pt-[4vh] lg:pt-[1vw] pb-[2vh] lg:pb-[0.5vw]">
         <div className="flex justify-center mb-[3vh] lg:mb-[0.8vw]">
           <img 
-            src="https://havana.gr/wp-content/uploads/2025/05/cropped-Logo.png" 
+            src="/logo.png" 
             alt="Havana Logo" 
-            className="h-[8vh] w-[8vh] lg:h-[2.5vw] lg:w-[2.5vw] object-contain"
+            className="h-[8vh] w-[8vh] lg:h-[7vw] lg:w-[7vw] object-contain"
           />
         </div>
         <h1 className="text-[6vh] lg:text-[2.2vw] font-bold text-white mb-[1vh] lg:mb-[0.3vw] tracking-wider">
