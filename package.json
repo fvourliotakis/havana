@@ -29,7 +29,7 @@
     "jsonwebtoken": "^9.0.2",
     "lucide-react": "^0.539.0",
     "mysql2": "^3.14.3",
-    "next": "15.4.6",
+    "next": "15.4.10",
     "next-auth": "^4.24.11",
     "nodemailer": "^6.10.1",
     "prisma": "^6.13.0",
